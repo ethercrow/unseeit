@@ -1,18 +1,41 @@
 #include "resynthesizer.h"
 
+#include <iostream>
+#include <QColor>
+#include <qmath.h>
 #include <QtGlobal>
 #include "utils.h"
 #include <QDebug>
 #include <QtGlobal>
 #include <algorithm>
+#include "pixel.h"
+
+const int R = 4;
 
 namespace {
 
+QImage grow_selection(QImage arg)
+{
+    QRect bounds(QPoint(0, 0), arg.size());
+    QImage result = arg;
+    QPolygon offsets;
+    offsets << QPoint(0, 1) << QPoint(1, 0) << QPoint(-1, 0) << QPoint(0, -1);
+    for (int j=0; j<arg.height(); ++j)
+        for (int i=0; i<arg.width(); ++i) {
+            QPoint p(i, j);
+            foreach(QPoint o, offsets)
+                if (bounds.contains(p+o) && !arg.pixelIndex(p+o))
+                    result.setPixel(p, 0);
+        }
+    return result;
+}
+
 struct RandomOffsetGenerator
 {
-    RandomOffsetGenerator(const QImage& outputMap):
-        width_(outputMap.width()), height_(outputMap.height()),
-        outputMap_(outputMap) {
+    RandomOffsetGenerator(const QImage& realMap, int r):
+        width_(realMap.width()),
+        height_(realMap.height()),
+        bitmap_(realMap) {
     }
 
     QPoint operator()(QPoint p) {
@@ -21,7 +44,7 @@ struct RandomOffsetGenerator
         do {
             rand_x = qrand()%width_;
             rand_y = qrand()%height_;
-        } while (outputMap_.pixel(rand_x, rand_y));
+        } while (bitmap_.pixelIndex(rand_x, rand_y));
 
         return QPoint(rand_x, rand_y) - p;
     }
@@ -33,7 +56,7 @@ struct RandomOffsetGenerator
 private:
     int width_;
     int height_;
-    const QImage& outputMap_;
+    QImage bitmap_;
 };
 
 QPoint rgb_to_point(QRgb data) {
@@ -55,6 +78,15 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 {
     TRACE_ME
 
+    realMap_ = QImage(outputMap.width(), outputMap.height(), QImage::Format_Mono);
+    realMap_.fill(1);
+    for (int j=0; j<outputMap.height(); ++j)
+        for (int i=0; i<outputMap.width(); ++i)
+            if (outputMap.pixel(i, j))
+                realMap_.setPixel(i, j, 0);
+    for (int pass=0; pass<R; ++pass)
+        realMap_ = grow_selection(realMap_);
+
     inputTexture_ = &inputTexture;
     outputMap_ = &outputMap;
     outputTexture_ = inputTexture;
@@ -62,7 +94,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
     if (inputTexture.size() != outputMap.size())
         qDebug() << "dimension mismatch";
 
-    RandomOffsetGenerator randoff(outputMap);
+    RandomOffsetGenerator randoff(realMap_, R);
 
     QPolygon points_to_fill;
     for (int j=0; j<inputTexture.height(); ++j) {
@@ -111,13 +143,13 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
     some_neighbours_even << QPoint(0, -1) << QPoint(-1, 0);
     some_neighbours_odd << QPoint(0, 1) << QPoint(1, 0);
 
-    for (int pass=0; pass<20; ++pass) {
+    for (int pass=0; pass<60; ++pass) {
         // refine pass
         // there are three kinds of places where we can look for better matches:
         // 1. Obviously, random places
         // 2. Propagation: trying points near our neighbour's source
         // 3. points near our source
-        qDebug() << "refinement pass";
+        std::cout << "." << std::flush;
 
         const QPolygon& some_neighbours = (pass%2)?some_neighbours_even:some_neighbours_odd;
 
@@ -129,9 +161,9 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
             int best_score = INT_MAX;
             updateSource(p, &best_offset, best_offset, &best_score);
 
-            // // random search
-            // for (int attempt=0; attempt<30; ++attempt)
-            //     updateSource(p, &best_offset, randoff(p), &best_score);
+            // random search
+            for (int attempt=0; attempt<10; ++attempt)
+                updateSource(p, &best_offset, randoff(p), &best_score);
 
             foreach (QPoint neighbour_minus_p, some_neighbours) {
                 if (outputMap.pixel(p + neighbour_minus_p)) {
@@ -151,6 +183,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
         }
         std::reverse(points_to_fill.begin(), points_to_fill.end());
     }
+    std::cout << std::endl;
 
     return outputTexture_;
 }
@@ -158,16 +191,18 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 bool Resynthesizer::updateSource(QPoint p, QPoint* best_offset,
     QPoint candidate_offset, int* best_score)
 {
-    int R = 4;
-
     QRect bounds(QPoint(0, 0), inputTexture_->size());
 
     // source point
     QPoint s = p + candidate_offset;
 
-    // fuck the bounds
+    // fuck the edge cases
     if (p.x() < R || p.x() >= inputTexture_->width()-R || p.y() < R || p.y() >= inputTexture_->height()-R ||
         s.x() < R || s.x() >= inputTexture_->width()-R || s.y() < R || s.y() >= inputTexture_->height()-R)
+        return false;
+
+    // we need only true real patches as sources
+    if (!realMap_.pixelIndex(s))
         return false;
 
     if (!bounds.contains(p) || !bounds.contains(s))
@@ -184,6 +219,7 @@ bool Resynthesizer::updateSource(QPoint p, QPoint* best_offset,
                 // we need to check how that fits with s
                 QPoint his_offset = rgb_to_point(offsetMap_.pixel(near_p));
 
+                // TODO: weight opinions based on scoreMap_
                 QPoint his_opinion = p + his_offset;
 
                 if (!bounds.contains(his_opinion)) {
@@ -195,31 +231,19 @@ bool Resynthesizer::updateSource(QPoint p, QPoint* best_offset,
                     quint8* s_rgb = reinterpret_cast<quint8*>(&s_pixel);
                     quint8* o_rgb = reinterpret_cast<quint8*>(&o_pixel);
 
-                    for (int c=0; c<4; ++c) {
-                        int d = ((int)*s_rgb-(int)*o_rgb);
-                        score += d*d/(1+i*i+j*j);
-                        ++s_rgb;
-                        ++o_rgb;
-                    }
+                    score += ssd4(s_rgb, o_rgb);
                 }
+            } else {
+                QPoint near_s = s + area_offset;
+
+                QRgb np_pixel = outputTexture_.pixel(near_p);
+                QRgb ns_pixel = outputTexture_.pixel(near_s);
+
+                quint8* np_rgb = reinterpret_cast<quint8*>(&np_pixel);
+                quint8* ns_rgb = reinterpret_cast<quint8*>(&ns_pixel);
+
+                score += ssd4(np_rgb, ns_rgb);
             }
-
-            QPoint near_s = s + area_offset;
-
-            QRgb np_pixel = outputTexture_.pixel(near_p);
-            QRgb ns_pixel = outputTexture_.pixel(near_s);
-
-            quint8* np_rgb = reinterpret_cast<quint8*>(&np_pixel);
-            quint8* ns_rgb = reinterpret_cast<quint8*>(&ns_pixel);
-
-            for (int c=0; c<4; ++c) {
-                int d = ((int)*np_rgb-(int)*ns_rgb);
-                d += d*3*(!outputMap_->pixel(near_p));
-                score += d*d;
-                ++np_rgb;
-                ++ns_rgb;
-            }
-
         }
     }
 
@@ -234,8 +258,28 @@ bool Resynthesizer::updateSource(QPoint p, QPoint* best_offset,
 
 QImage Resynthesizer::offsetMap()
 {
-    // TODO: convert to something nice
-    return offsetMap_;
+    QImage result = offsetMap_.convertToFormat(QImage::Format_RGB32);
+
+    // angle -> hue
+    // magnitude -> saturation
+
+    for (int j=0; j<offsetMap_.height(); ++j)
+        for (int i=0; i<offsetMap_.width(); ++i) {
+            QPoint o = rgb_to_point(offsetMap_.pixel(i, j));
+            int hue = 180/M_PI*qAtan2(o.x(), o.y());
+            if (hue<0)
+                hue += 360;
+            if (hue==360)
+                hue = 0;
+
+            int value = 255;
+            int saturation = 255*sqrt(qreal(o.x()*o.x() + o.y()*o.y())/
+                    (offsetMap_.width()*offsetMap_.width() + offsetMap_.height()*offsetMap_.height()));
+            QColor c = QColor::fromHsv(hue, saturation, value);
+            result.setPixel(i, j, c.rgb());
+        }
+
+    return result;
 }
 
 QImage Resynthesizer::scoreMap()
@@ -244,39 +288,3 @@ QImage Resynthesizer::scoreMap()
     return scoreMap_.convertToFormat(QImage::Format_RGB32);
 }
 
-int Resynthesizer::coherence(QPoint p1, QPoint p2, int R)
-{
-    int result;
-    QRect bounds(QPoint(0, 0), inputTexture_->size());
-    QPoint d = p2 - p1;
-
-    QPoint s1 = p1 + rgb_to_point(offsetMap_.pixel(p1));
-    QPoint s2 = p2 + rgb_to_point(offsetMap_.pixel(p2));
-
-    for (int j=qMax(-R, -R+d.y()); j<=qMin(R, R+d.y()); ++j)
-        for (int i=qMax(-R, -R+d.x()); i<=qMin(R, R+d.x()); ++i) {
-            QPoint near_offset = QPoint(i, j);
-            QPoint near_s1 = s1 + near_offset;
-            QPoint near_s2 = s2 - d + near_offset;
-
-            if (bounds.contains(near_s1) && bounds.contains(near_s2)) {
-
-                QRgb s1_pixel = outputTexture_.pixel(near_s1);
-                QRgb s2_pixel = outputTexture_.pixel(near_s2);
-
-                quint8* s1_rgb = reinterpret_cast<quint8*>(&s1_pixel);
-                quint8* s2_rgb = reinterpret_cast<quint8*>(&s2_pixel);
-
-                for (int c=0; c<4; ++c) {
-                    int d = ((int)*s1_rgb-(int)*s2_rgb);
-                    result += d*d;
-                    ++s1_rgb;
-                    ++s2_rgb;
-                }
-            } else {
-                result += 256*256*3;
-            }
-        }
-
-    return 0;
-}

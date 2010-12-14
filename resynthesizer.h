@@ -20,4 +20,6 @@ private:
     QImage outputTexture_;
     QImage offsetMap_;
     QImage scoreMap_;
+
+    QImage realMap_;
 };
