@@ -21,6 +21,8 @@ private:
     QLabel* imageLabel_;
     QLabel* overlayLabel_;
     QLabel* resultLabel_;
+    QLabel* offsetMapLabel_;
+    QLabel* scoreMapLabel_;
 
     QImage* pictureImage_;
     QImage* overlayImage_;

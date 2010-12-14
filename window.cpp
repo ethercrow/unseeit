@@ -9,9 +9,11 @@ Window::Window(QWidget* parent):QWidget(parent),
     pictureImage_(NULL), overlayImage_(NULL),
     paintSize_(3)
 {
-    imageLabel_ = new QLabel(this);
-    overlayLabel_ = new QLabel(this);
-    resultLabel_ = new QLabel(this);
+    imageLabel_     = new QLabel(this);
+    overlayLabel_   = new QLabel(this);
+    resultLabel_    = new QLabel(this);
+    offsetMapLabel_ = new QLabel(this);
+    scoreMapLabel_  = new QLabel(this);
 }
 
 void Window::loadImage(const QString& filename)
@@ -32,8 +34,10 @@ void Window::loadImage(const QString& filename)
     imageLabel_->setGeometry(frame);
     overlayLabel_->setGeometry(frame);
     resultLabel_->setGeometry(frame.translated(frame.width(), 0));
+    offsetMapLabel_->setGeometry(frame.translated(frame.width(), frame.height()));
+    scoreMapLabel_->setGeometry(frame.translated(0, frame.height()));
 
-    this->resize(frame.width()*2, frame.height());
+    this->resize(frame.width()*2, frame.height()*2);
 }
 
 void Window::mouseMoveEvent(QMouseEvent* evt)
@@ -52,8 +56,13 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
     switch (evt->key()) {
         case Qt::Key_Return: {
             Resynthesizer r;
+
             QImage result = r.inpaint(*pictureImage_, *overlayImage_);
             resultLabel_->setPixmap(QPixmap::fromImage(result));
+
+            offsetMapLabel_->setPixmap(QPixmap::fromImage(r.offsetMap()));
+            scoreMapLabel_->setPixmap(QPixmap::fromImage(r.scoreMap()));
+
             break;
         }
         case Qt::Key_Space:
