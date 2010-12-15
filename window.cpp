@@ -61,8 +61,7 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
             resultLabel_->setPixmap(QPixmap::fromImage(result));
 
             offsetMapLabel_->setPixmap(QPixmap::fromImage(r.offsetMap()));
-            scoreMapLabel_->setPixmap(QPixmap::fromImage(r.scoreMap()));
-
+            scoreMapLabel_->setPixmap(QPixmap::fromImage(r.realMap()));
             break;
         }
         case Qt::Key_Space:
