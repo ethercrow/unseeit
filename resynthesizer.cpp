@@ -68,37 +68,40 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
             if (!realMap_.pixelIndex(i, j))
                 offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
 
-    mergePatches();
+    mergePatches(false);
+
+    sm.init(inputTexture, outputTexture_, realMap_);
 
     for (int pass=0; pass<50; ++pass) {
         std::cout << "." << std::flush;
         // update offsetMap_
-        offsetMap_ = sm.calculateVectorMap(inputTexture, outputTexture_, realMap_);
+        offsetMap_ = sm.iterate(outputTexture_);
         scoreMap_ = sm.scoreMap();
 
-        mergePatches();
+        mergePatches(true);
     }
     std::cout << std::endl;
 
     return outputTexture_;
 }
 
-void Resynthesizer::mergePatches()
+void Resynthesizer::mergePatches(bool weighted)
 {
-    // TODO: weighted mean
     QRect bounds(QPoint(0, 0), outputTexture_.size());
     int width = offsetMap_.width();
 
     QVector<qreal> weightMap(offsetMap_.height()*width, 1.0);
-    for (int j=0; j<offsetMap_.height(); ++j)
-        for (int i=0; i<width; ++i) {
-            QPoint p(i, j);
-            if (!realMap_.pixelIndex(i, j)) {
-                int score = (int)scoreMap_->pixel(p);
-                qreal reliability = qExp(-score/(SIGMA2*(2*R+1)*(2*R+1)));
-                weightMap[j*width+i] = reliability;
+
+    if (weighted)
+        for (int j=0; j<offsetMap_.height(); ++j)
+            for (int i=0; i<width; ++i) {
+                QPoint p(i, j);
+                if (!realMap_.pixelIndex(i, j)) {
+                    int score = (int)scoreMap_->pixel(p);
+                    qreal reliability = qExp(-score/(SIGMA2*(2*R+1)*(2*R+1)));
+                    weightMap[j*width+i] = reliability;
+                }
             }
-        }
 
     for (int j=0; j<outputTexture_.height(); ++j)
         for (int i=0; i<width; ++i)
@@ -113,7 +116,10 @@ void Resynthesizer::mergePatches()
                         QPoint opinion_point = p + rgb_to_point(offsetMap_.pixel(p+dp));
 
                         QColor c(inputTexture_->pixel(opinion_point));
-                        double weight = weightMap[(p+dp).y()*width + (p+dp).x()];
+
+                        double weight = (weighted)
+                                            ?(weightMap[(p+dp).y()*width + (p+dp).x()])
+                                            :1.0;
 
                         r += c.red()*weight;
                         g += c.green()*weight;;

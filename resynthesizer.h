@@ -14,7 +14,7 @@ public:
 
 private:
     int coherence(QPoint p1, QPoint p2, int R);
-    void mergePatches();
+    void mergePatches(bool weighted);
 
     const QImage* inputTexture_;
     const QImage* scoreMap_;

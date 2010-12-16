@@ -10,21 +10,18 @@
 const int R = 4;
 const int PASS_COUNT = 10;
 
-QImage SimilarityMapper::calculateVectorMap(const QImage& src,
+void SimilarityMapper::init(const QImage& src,
         const QImage& dst, const QImage& srcMask)
 {
     // offsetmap has the same dimensions as dst
     offsetMap_ = dst;
     src_ = &src;
-    dst_ = &dst;
     srcMask_ = &srcMask;
 
-    RandomOffsetGenerator rog(srcMask, 4);
+    RandomOffsetGenerator rog(srcMask, R);
 
     scoreMap_ = dst;
     scoreMap_.fill(0);
-
-    int init_search_range = qMax(src.width(), src.height());
 
     // fill offsetmap with random offsets for unknows points
     offsetMap_.fill(0);
@@ -34,24 +31,40 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
                 offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
 
     // create list of unknown points
-    QPolygon points_to_fill;
     for (int j=0; j<dst.height(); ++j)
         for (int i=0, i_end = dst.width(); i<i_end; ++i)
             if (!srcMask.pixelIndex(i, j))
-                points_to_fill << QPoint(i, j);
+                pointsToFill_ << QPoint(i, j);
+
+    qDebug() << pointsToFill_.size() << "points to fill";
+}
+
+QImage SimilarityMapper::iterate(const QImage& dst)
+{
+    dst_ = &dst;
+    int init_search_range = qMax(src_->width(), src_->height());
 
     QPolygon neighbour_offsets_even, neighbour_offsets_odd;
     neighbour_offsets_even << QPoint(0, -1) << QPoint(-1, 0);
     neighbour_offsets_odd << QPoint(0, 1) << QPoint(1, 0);
 
-    for (int pass=0; pass<PASS_COUNT; ++pass) {
+    RandomOffsetGenerator rog(*srcMask_, R);
+
+    // fill offsetmap with random offsets for unknows points
+    offsetMap_.fill(0);
+    for (int j=0; j<offsetMap_.height(); ++j)
+        for (int i=0; i<offsetMap_.width(); ++i)
+            if (!srcMask_->pixelIndex(i, j))
+                offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+
+    for (int pass=0; pass<10; ++pass) {
         // refine pass
         // there are two kinds of places where we can look for better matches:
         // 1. Obviously, random places
         // 2. Propagation: trying points near our neighbour's source
         const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
 
-        foreach(QPoint p, points_to_fill) {
+        foreach(QPoint p, pointsToFill_) {
             QPoint best_offset = rgb_to_point(offsetMap_.pixel(p));
 
             int best_score = INT_MAX;
@@ -70,11 +83,11 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
 
             // propagate good guess from left and above (right and below on odd iterations)
             foreach (QPoint dp, neighbour_offsets) {
-                if (!srcMask.pixelIndex(p + dp)) {
+                if (!srcMask_->pixelIndex(p + dp)) {
                     // our neighbour is unknown point too
                     // maybe his offset is better than ours
                     QPoint neighbours_offset = rgb_to_point(offsetMap_.pixel(p+dp));
-                    if (srcMask.pixelIndex(p + neighbours_offset))
+                    if (srcMask_->pixelIndex(p + neighbours_offset))
                         updateSource(p, &best_offset, neighbours_offset, &best_score);
                 }
             }
@@ -82,10 +95,26 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
             // save found offset
             offsetMap_.setPixel(p, point_to_rgb(best_offset));
         }
-        std::reverse(points_to_fill.begin(), points_to_fill.end());
+        std::reverse(pointsToFill_.begin(), pointsToFill_.end());
     }
 
+    report_max_score();
+
     return offsetMap_;
+}
+
+void SimilarityMapper::report_max_score()
+{
+    int max_score = 0;
+    double mean_score = 0;
+    for (int j=0; j<scoreMap_.height(); ++j)
+        for (int i=0, i_end = scoreMap_.width(); i<i_end; ++i) {
+            max_score = qMax(max_score, (int)scoreMap_.pixel(i, j));
+            mean_score += (int)scoreMap_.pixel(i, j);
+        }
+    mean_score /= scoreMap_.width()*scoreMap_.height();
+
+    qDebug() << "score : max =" << max_score << "mean =" << mean_score;
 }
 
 bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
