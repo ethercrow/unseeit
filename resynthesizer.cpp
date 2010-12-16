@@ -1,18 +1,21 @@
 #include "resynthesizer.h"
 
-#include <iostream>
 #include <QColor>
-#include <qmath.h>
-#include <QtGlobal>
-#include "utils.h"
 #include <QDebug>
+#include <QVector>
+#include <QtGlobal>
 #include <QtGlobal>
 #include <algorithm>
+#include <iostream>
+#include <qmath.h>
+
 #include "pixel.h"
-#include "similaritymapper.h"
 #include "randomoffsetgenerator.h"
+#include "similaritymapper.h"
+#include "utils.h"
 
 const int R = 4;
+const double SIGMA2 = 50.f;
 
 namespace {
 
@@ -40,7 +43,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 {
     TRACE_ME
 
-    realMap_ = QImage(outputMap.width(), outputMap.height(), QImage::Format_Mono);
+    realMap_ = QImage(outputMap.size(), QImage::Format_Mono);
     realMap_.fill(1);
     for (int j=0; j<outputMap.height(); ++j)
         for (int i=0; i<outputMap.width(); ++i)
@@ -68,11 +71,14 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
     mergePatches();
 
     for (int pass=0; pass<50; ++pass) {
+        std::cout << "." << std::flush;
         // update offsetMap_
         offsetMap_ = sm.calculateVectorMap(inputTexture, outputTexture_, realMap_);
+        scoreMap_ = sm.scoreMap();
 
         mergePatches();
     }
+    std::cout << std::endl;
 
     return outputTexture_;
 }
@@ -80,35 +86,45 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 void Resynthesizer::mergePatches()
 {
     // TODO: weighted mean
-
     QRect bounds(QPoint(0, 0), outputTexture_.size());
+    int width = offsetMap_.width();
+
+    QVector<qreal> weightMap(offsetMap_.height()*width, 1.0);
+    for (int j=0; j<offsetMap_.height(); ++j)
+        for (int i=0; i<width; ++i) {
+            QPoint p(i, j);
+            if (!realMap_.pixelIndex(i, j)) {
+                int score = (int)scoreMap_->pixel(p);
+                qreal reliability = qExp(-score/(SIGMA2*(2*R+1)*(2*R+1)));
+                weightMap[j*width+i] = reliability;
+            }
+        }
 
     for (int j=0; j<outputTexture_.height(); ++j)
-        for (int i=0; i<outputTexture_.width(); ++i)
+        for (int i=0; i<width; ++i)
             if (!realMap_.pixelIndex(i, j)) {
                 QPoint p(i, j);
-                int r = 0, g = 0, b = 0;
+                double r = 0.0, g = 0.0, b = 0.0;
+                double weight_sum = 0.0;
 
                 for (int dj=-R; dj<=R; ++dj)
                     for (int di=-R; di<=R; ++di) {
                         QPoint dp = QPoint(di, dj);
                         QPoint opinion_point = p + rgb_to_point(offsetMap_.pixel(p+dp));
 
-                        if (!bounds.contains(opinion_point))
-                            qDebug() << "WTF1?!";
-
-                        if (!realMap_.pixelIndex(opinion_point))
-                            qDebug() << "WTF2?!";
-
                         QColor c(inputTexture_->pixel(opinion_point));
-                        r += c.red();
-                        g += c.green();
-                        b += c.blue();
+                        double weight = weightMap[(p+dp).y()*width + (p+dp).x()];
+
+                        r += c.red()*weight;
+                        g += c.green()*weight;;
+                        b += c.blue()*weight;;
+
+                        weight_sum += weight;
                     }
 
-                r /= (2*R+1)*(2*R+1);
-                g /= (2*R+1)*(2*R+1);
-                b /= (2*R+1)*(2*R+1);
+                r /= weight_sum;
+                g /= weight_sum;
+                b /= weight_sum;
 
                 outputTexture_.setPixel(p, QColor(r, g, b).rgb());
             }
@@ -139,7 +155,3 @@ QImage Resynthesizer::offsetMap()
     return result;
 }
 
-QImage Resynthesizer::realMap()
-{
-    return realMap_;
-}

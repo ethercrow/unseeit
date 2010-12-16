@@ -11,13 +11,13 @@ public:
     QImage inpaint(const QImage& inputTexture, const QImage& outputMap);
 
     QImage offsetMap();
-    QImage realMap();
 
 private:
     int coherence(QPoint p1, QPoint p2, int R);
     void mergePatches();
 
     const QImage* inputTexture_;
+    const QImage* scoreMap_;
     QImage outputTexture_;
     QImage offsetMap_;
 
