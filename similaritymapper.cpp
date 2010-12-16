@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <qmath.h>
 
 #include "pixel.h"
 #include "randomoffsetgenerator.h"
@@ -9,6 +10,7 @@
 
 const int R = 4;
 const int PASS_COUNT = 10;
+const double SIGMA2 = 300.f;
 
 void SimilarityMapper::init(const QImage& src,
         const QImage& dst, const QImage& srcMask)
@@ -57,7 +59,7 @@ QImage SimilarityMapper::iterate(const QImage& dst)
             if (!srcMask_->pixelIndex(i, j))
                 offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
 
-    for (int pass=0; pass<10; ++pass) {
+    for (int pass=0; pass<PASS_COUNT; ++pass) {
         // refine pass
         // there are two kinds of places where we can look for better matches:
         // 1. Obviously, random places
@@ -106,15 +108,21 @@ QImage SimilarityMapper::iterate(const QImage& dst)
 void SimilarityMapper::report_max_score()
 {
     int max_score = 0;
+    int min_score = INT_MAX;
     double mean_score = 0;
-    for (int j=0; j<scoreMap_.height(); ++j)
-        for (int i=0, i_end = scoreMap_.width(); i<i_end; ++i) {
-            max_score = qMax(max_score, (int)scoreMap_.pixel(i, j));
-            mean_score += (int)scoreMap_.pixel(i, j);
-        }
-    mean_score /= scoreMap_.width()*scoreMap_.height();
 
-    qDebug() << "score : max =" << max_score << "mean =" << mean_score;
+    foreach(QPoint p, pointsToFill_) {
+        int score = (int)scoreMap_.pixel(p);
+        max_score = qMax(max_score, score);
+        min_score = qMin(min_score, score);
+        mean_score += score;
+    }
+
+    mean_score /= pointsToFill_.size();
+
+    qDebug() << "score : max =" << max_score
+        << "mean =" << mean_score
+        << "min =" << min_score;
 }
 
 bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
@@ -137,7 +145,8 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
     if (!bounds.contains(p) || !bounds.contains(s))
         return false;
 
-    int score = 0;
+    double score = 0;
+    double weight_sum = 0;
     for (int j=-R; j<=R; ++j)
         for (int i=-R; i<=R; ++i) {
             QPoint dp = QPoint(i, j);
@@ -151,14 +160,20 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
             quint8* ns_rgb = reinterpret_cast<quint8*>(&ns_pixel);
             quint8* np_rgb = reinterpret_cast<quint8*>(&np_pixel);
 
-            score += ssd4(ns_rgb, np_rgb);
+            int his_score = (int)scoreMap_.pixel(near_p);
+            double weight = qExp(-his_score/SIGMA2);
+
+            score += ssd4(ns_rgb, np_rgb)*weight;
+            weight_sum += weight;
         }
+
+    score /= weight_sum;
 
     if (*best_score <= score)
         return false;
 
     *best_score = score;
-    scoreMap_.setPixel(p, (QRgb)score);
+    scoreMap_.setPixel(p, (QRgb)qCeil(score));
     *best_offset = candidate_offset;
     return true;
 }

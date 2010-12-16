@@ -14,6 +14,7 @@ public:
     QImage calculateVectorMap(const QImage& src, const QImage& dst, const QImage& srcMask);
 
     const QImage* scoreMap() { return &scoreMap_; };
+    const QVector<qreal> confidenceMap();
 
 private:
     bool updateSource(QPoint p, QPoint* current_offset,

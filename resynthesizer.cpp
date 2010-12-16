@@ -15,7 +15,8 @@
 #include "utils.h"
 
 const int R = 4;
-const double SIGMA2 = 50.f;
+const double SIGMA2 = 300.f;
+const int PASS_COUNT = 100;
 
 namespace {
 
@@ -72,7 +73,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 
     sm.init(inputTexture, outputTexture_, realMap_);
 
-    for (int pass=0; pass<50; ++pass) {
+    for (int pass=0; pass<PASS_COUNT; ++pass) {
         std::cout << "." << std::flush;
         // update offsetMap_
         offsetMap_ = sm.iterate(outputTexture_);
@@ -98,7 +99,7 @@ void Resynthesizer::mergePatches(bool weighted)
                 QPoint p(i, j);
                 if (!realMap_.pixelIndex(i, j)) {
                     int score = (int)scoreMap_->pixel(p);
-                    qreal reliability = qExp(-score/(SIGMA2*(2*R+1)*(2*R+1)));
+                    qreal reliability = qExp(-score/SIGMA2);
                     weightMap[j*width+i] = reliability;
                 }
             }
