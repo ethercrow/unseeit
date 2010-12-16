@@ -21,6 +21,11 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
 
     RandomOffsetGenerator rog(srcMask, 4);
 
+    scoreMap_ = dst;
+    scoreMap_.fill(0);
+
+    int init_search_range = qMax(src.width(), src.height());
+
     // fill offsetmap with random offsets for unknows points
     offsetMap_.fill(0);
     for (int j=0; j<offsetMap_.height(); ++j)
@@ -35,8 +40,6 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
             if (!srcMask.pixelIndex(i, j))
                 points_to_fill << QPoint(i, j);
 
-    qDebug() << points_to_fill.size() << "points to fill";
-
     QPolygon neighbour_offsets_even, neighbour_offsets_odd;
     neighbour_offsets_even << QPoint(0, -1) << QPoint(-1, 0);
     neighbour_offsets_odd << QPoint(0, 1) << QPoint(1, 0);
@@ -46,15 +49,11 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
         // there are two kinds of places where we can look for better matches:
         // 1. Obviously, random places
         // 2. Propagation: trying points near our neighbour's source
-        std::cout << "." << std::flush;
-
-        const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_even:neighbour_offsets_odd;
+        const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
 
         foreach(QPoint p, points_to_fill) {
             QPoint best_offset = rgb_to_point(offsetMap_.pixel(p));
 
-            // since the last iteration scoreMap_ became obsoleted
-            // int best_score = (int)scoreMap_.pixel(p);
             int best_score = INT_MAX;
             updateSource(p, &best_offset, best_offset, &best_score);
 
@@ -62,9 +61,12 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
                 continue;
 
             // random search
-            // TODO: smarter random search
-            for (int attempt=0; attempt<10; ++attempt)
-                updateSource(p, &best_offset, rog(p), &best_score);
+            for (int range=init_search_range; range>0; range/=2) {
+                QPoint o(best_offset);
+                o.rx() += qrand()%(2*range) - range;
+                o.ry() += qrand()%(2*range) - range;
+                updateSource(p, &best_offset, o, &best_score);
+            }
 
             // propagate good guess from left and above (right and below on odd iterations)
             foreach (QPoint dp, neighbour_offsets) {
@@ -82,7 +84,6 @@ QImage SimilarityMapper::calculateVectorMap(const QImage& src,
         }
         std::reverse(points_to_fill.begin(), points_to_fill.end());
     }
-    std::cout << std::endl;
 
     return offsetMap_;
 }
@@ -128,7 +129,7 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
         return false;
 
     *best_score = score;
-    //scoreMap_.setPixel(p, (QRgb)score);
+    scoreMap_.setPixel(p, (QRgb)score);
     *best_offset = candidate_offset;
     return true;
 }
