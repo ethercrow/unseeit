@@ -15,8 +15,8 @@
 #include "utils.h"
 
 const int R = 4;
-const double SIGMA2 = 300.f;
-const int PASS_COUNT = 100;
+const double SIGMA2 = 100.f;
+const int PASS_COUNT = 30;
 
 namespace {
 
@@ -64,10 +64,13 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 
     // fill offsetmap with random offsets for unknows points
     RandomOffsetGenerator rog(realMap_, R);
+    confidenceMap_ = QVector<double>(realMap_.width()*realMap_.height(), 1.0);
     for (int j=0; j<outputMap.height(); ++j)
         for (int i=0; i<outputMap.width(); ++i)
-            if (!realMap_.pixelIndex(i, j))
+            if (!realMap_.pixelIndex(i, j)) {
                 offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+                confidenceMap_[j*outputMap.width()+i] = 1e-10;
+            }
 
     mergePatches(false);
 
@@ -92,6 +95,7 @@ void Resynthesizer::mergePatches(bool weighted)
     int width = offsetMap_.width();
 
     QVector<qreal> weightMap(offsetMap_.height()*width, 1.0);
+    QVector<qreal> new_confidence_map(confidenceMap_);
 
     if (weighted)
         for (int j=0; j<offsetMap_.height(); ++j)
@@ -108,8 +112,10 @@ void Resynthesizer::mergePatches(bool weighted)
         for (int i=0; i<width; ++i)
             if (!realMap_.pixelIndex(i, j)) {
                 QPoint p(i, j);
-                double r = 0.0, g = 0.0, b = 0.0;
-                double weight_sum = 0.0;
+                qreal r = 0.0, g = 0.0, b = 0.0;
+                qreal new_confidence = 0.0;
+                qreal confidence_sum = 0.0;
+                qreal weight_sum = 0.0;
 
                 for (int dj=-R; dj<=R; ++dj)
                     for (int di=-R; di<=R; ++di) {
@@ -118,9 +124,12 @@ void Resynthesizer::mergePatches(bool weighted)
 
                         QColor c(inputTexture_->pixel(opinion_point));
 
-                        double weight = (weighted)
-                                            ?(weightMap[(p+dp).y()*width + (p+dp).x()])
+                        int idx = (p+dp).y()*width + (p+dp).x();
+                        qreal weight = (weighted)
+                                            ?(weightMap[idx]*confidenceMap_[idx])
                                             :1.0;
+
+                        new_confidence += confidenceMap_[idx]*weight;
 
                         r += c.red()*weight;
                         g += c.green()*weight;;
@@ -134,7 +143,9 @@ void Resynthesizer::mergePatches(bool weighted)
                 b /= weight_sum;
 
                 outputTexture_.setPixel(p, QColor(r, g, b).rgb());
+                new_confidence_map[p.y()*width + p.x()] = new_confidence/weight_sum;
             }
+    confidenceMap_ = new_confidence_map;
 }
 
 QImage Resynthesizer::offsetMap()

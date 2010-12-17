@@ -10,7 +10,7 @@
 
 const int R = 4;
 const int PASS_COUNT = 10;
-const double SIGMA2 = 300.f;
+const double SIGMA2 = 100.f;
 
 void SimilarityMapper::init(const QImage& src,
         const QImage& dst, const QImage& srcMask)
@@ -52,12 +52,12 @@ QImage SimilarityMapper::iterate(const QImage& dst)
 
     RandomOffsetGenerator rog(*srcMask_, R);
 
-    // fill offsetmap with random offsets for unknows points
-    offsetMap_.fill(0);
-    for (int j=0; j<offsetMap_.height(); ++j)
-        for (int i=0; i<offsetMap_.width(); ++i)
-            if (!srcMask_->pixelIndex(i, j))
-                offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+    // // fill offsetmap with random offsets for unknows points
+    // offsetMap_.fill(0);
+    // for (int j=0; j<offsetMap_.height(); ++j)
+    //     for (int i=0; i<offsetMap_.width(); ++i)
+    //         if (!srcMask_->pixelIndex(i, j))
+    //             offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
 
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         // refine pass
