@@ -15,8 +15,8 @@
 #include "utils.h"
 
 const int R = 4;
-const double SIGMA2 = 100.f;
-const int PASS_COUNT = 30;
+const double SIGMA2 = 20.f;
+const int PASS_COUNT = 12;
 
 namespace {
 
@@ -74,7 +74,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 
     mergePatches(false);
 
-    sm.init(inputTexture, outputTexture_, realMap_);
+    sm.init(inputTexture, outputTexture_, realMap_, realMap_);
 
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         std::cout << "." << std::flush;

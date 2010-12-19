@@ -17,6 +17,7 @@ private:
     int coherence(QPoint p1, QPoint p2, int R);
     void mergePatches(bool weighted);
 
+    // TODO: stop using QVector and QImage as matrices ffs
     QVector<qreal> confidenceMap_;
     const QImage* inputTexture_;
     const QImage* scoreMap_;

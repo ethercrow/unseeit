@@ -1,3 +1,6 @@
+#ifndef UNSEEIT_WINDOW_H
+#define UNSEEIT_WINDOW_H
+
 #include <QWidget>
 
 #include <QLabel>
@@ -29,3 +32,5 @@ private:
 
     int paintSize_;
 };
+
+#endif

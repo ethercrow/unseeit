@@ -8,12 +8,11 @@ class SimilarityMapper
 {
 public:
     // src, dst - argb32, src_mask - mono
-    void init(const QImage& src, const QImage& dst, const QImage& srcMask);
+    void init(const QImage& src, const QImage& dst, const QImage& srcMask, const QImage& dstMask);
     QImage iterate(const QImage& dst);
 
-    QImage calculateVectorMap(const QImage& src, const QImage& dst, const QImage& srcMask);
-
     const QImage* scoreMap() { return &scoreMap_; };
+    const QVector<double>* reliabilityMap() { return &reliabilityMap_; };
     const QVector<qreal> confidenceMap();
 
 private:
@@ -21,11 +20,15 @@ private:
         QPoint candidate_offset, int* score);
     void report_max_score();
 
+    // reliability = exp(-score/SIGMA2);
     QImage scoreMap_;
+    QVector<qreal> reliabilityMap_;
+
     QImage offsetMap_;
     const QImage* src_;
-    const QImage* dst_;
+    QImage dst_;
     const QImage* srcMask_;
+    const QImage* dstMask_;
 
     QPolygon pointsToFill_;
 };
