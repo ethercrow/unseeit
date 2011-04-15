@@ -9,6 +9,7 @@ class SimilarityMapper
 public:
     // src, dst - argb32, src_mask - mono
     void init(const QImage& src, const QImage& dst, const QImage& srcMask, const QImage& dstMask);
+    void init(const QImage& src, const QImage& dst);
     QImage iterate(const QImage& dst);
 
     const QImage* scoreMap() { return &scoreMap_; };
@@ -20,17 +21,20 @@ private:
         QPoint candidate_offset, int* score);
     void report_max_score();
 
-    // reliability = exp(-score/SIGMA2);
     QImage scoreMap_;
+
+    // reliability = exp(-score/SIGMA2);
     QVector<qreal> reliabilityMap_;
 
     QImage offsetMap_;
-    const QImage* src_;
-    QImage dst_;
-    const QImage* srcMask_;
-    const QImage* dstMask_;
 
     QPolygon pointsToFill_;
+
+    // read-only
+    QImage dst_;
+    QImage src_;
+    QImage srcMask_;
+    QImage dstMask_;
 };
 
 #endif

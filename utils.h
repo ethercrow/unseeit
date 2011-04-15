@@ -36,4 +36,12 @@ inline QRgb point_to_rgb(QPoint point) {
     return result;
 }
 
+// upscale and downscale routines
+
+QImage downscale_mask(const QImage mask, const QSize dstSize);
+
+QImage resize_offset_map(const QImage src, const QSize dstSize);
+
+QImage visualizeOffsetMap(const QImage& offsetMap);
+
 #endif

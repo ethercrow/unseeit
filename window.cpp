@@ -57,7 +57,7 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
         case Qt::Key_Return: {
             Resynthesizer r;
 
-            QImage result = r.inpaint(*pictureImage_, *overlayImage_);
+            QImage result = r.inpaintHier(*pictureImage_, *overlayImage_);
             resultLabel_->setPixmap(QPixmap::fromImage(result));
 
             offsetMapLabel_->setPixmap(QPixmap::fromImage(r.offsetMap()));

@@ -10,6 +10,10 @@ class Resynthesizer
 
 public:
     QImage inpaint(const QImage& inputTexture, const QImage& outputMap);
+    QImage buildOffsetMap(const QImage& inputTexture,
+                          const QImage& outputMap,
+                          const QImage& hint);
+    QImage inpaintHier(const QImage& inputTexture, const QImage& outputMap);
 
     QImage offsetMap();
 

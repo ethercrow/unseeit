@@ -8,7 +8,7 @@ DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
-HEADERS += window.h resynthesizer.h utils.h randomoffsetgenerator.h similaritymapper.h
-SOURCES += main.cpp window.cpp resynthesizer.cpp randomoffsetgenerator.cpp similaritymapper.cpp
+HEADERS += window.h resynthesizer.h utils.h randomoffsetgenerator.h similaritymapper.h patchmatchwindow.h
+SOURCES += main.cpp window.cpp resynthesizer.cpp randomoffsetgenerator.cpp similaritymapper.cpp utils.cpp patchmatchwindow.cpp
 
 QMAKE_CXXFLAGS += -O2 -g -std=c++0x -Wshadow

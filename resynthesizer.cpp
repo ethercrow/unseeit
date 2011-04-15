@@ -4,7 +4,6 @@
 #include <QDebug>
 #include <QVector>
 #include <QtGlobal>
-#include <QtGlobal>
 #include <algorithm>
 #include <iostream>
 #include <qmath.h>
@@ -17,6 +16,7 @@
 const int R = 4;
 const double SIGMA2 = 20.f;
 const int PASS_COUNT = 12;
+const int LOD_MAX = 4;
 
 namespace {
 
@@ -38,6 +38,93 @@ QImage grow_selection(QImage arg)
 }
 
 };
+
+
+QImage Resynthesizer::inpaintHier(const QImage& inputTexture,
+                              const QImage& outputMap)
+{
+    bool first_pass = true;
+    QImage lodOffsetMap;
+
+    for (int lod_level=LOD_MAX; lod_level>=0; --lod_level) {
+        QSize lodSize = inputTexture.size()/(1<<lod_level);
+
+        if (!first_pass)
+            lodOffsetMap = resize_offset_map(lodOffsetMap, lodSize);
+
+        QImage lodInputTexture = inputTexture.scaled(lodSize,
+                Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        QImage lodOutputMap = outputMap.scaled(lodSize,
+                Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+        lodOffsetMap = buildOffsetMap(lodInputTexture, lodOutputMap,
+               first_pass?QImage():lodOffsetMap);
+
+        if (first_pass)
+            first_pass = false;
+
+        outputTexture_.save(QString("tmp/lod_%1.png").arg(lod_level));
+    }
+    return outputTexture_;
+}
+
+QImage Resynthesizer::buildOffsetMap(const QImage& inputTexture,
+                      const QImage& outputMap,
+                      const QImage& hint)
+{
+    TRACE_ME
+
+    realMap_ = QImage(outputMap.size(), QImage::Format_Mono);
+    realMap_.fill(1);
+    for (int j=0; j<outputMap.height(); ++j)
+        for (int i=0; i<outputMap.width(); ++i)
+            if (outputMap.pixel(i, j))
+                realMap_.setPixel(i, j, 0);
+    for (int pass=0; pass<=R; ++pass)
+        realMap_ = grow_selection(realMap_);
+
+    SimilarityMapper sm;
+
+    inputTexture_ = &inputTexture;
+    outputTexture_ = inputTexture;
+
+    if (hint.isNull()) {
+        offsetMap_ = inputTexture;
+        // generate initial offsetmap
+        offsetMap_.fill(0);
+
+        RandomOffsetGenerator rog(realMap_, R);
+        for (int j=0; j<outputMap.height(); ++j)
+            for (int i=0; i<outputMap.width(); ++i)
+                if (!realMap_.pixelIndex(i, j))
+                    offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+    } else {
+        offsetMap_ = hint;
+    }
+
+    // fill offsetmap with random offsets for unknows points
+    confidenceMap_ = QVector<double>(realMap_.width()*realMap_.height(), 1.0);
+    for (int j=0; j<outputMap.height(); ++j)
+        for (int i=0; i<outputMap.width(); ++i)
+            if (!realMap_.pixelIndex(i, j))
+                confidenceMap_[j*outputMap.width()+i] = 1e-10;
+
+    mergePatches(false);
+
+    sm.init(inputTexture, outputTexture_, realMap_, realMap_);
+
+    for (int pass=0; pass<PASS_COUNT; ++pass) {
+        std::cout << "." << std::flush;
+        // update offsetMap_
+        offsetMap_ = sm.iterate(outputTexture_);
+        scoreMap_ = sm.scoreMap();
+
+        mergePatches(true);
+    }
+    std::cout << std::endl;
+
+    return offsetMap_;
+}
 
 QImage Resynthesizer::inpaint(const QImage& inputTexture,
                               const QImage& outputMap)
