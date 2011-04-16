@@ -70,12 +70,19 @@ QImage PatchMatchWindow::applyOffsets(const QImage& offsetMap)
 {
     TRACE_ME
 
+    auto src_bounds = srcImage_->rect();
+
     auto result = *dstImage_;
+    result.fill(0);
 
     for (int j=0; j<result.height(); ++j)
         for (int i=0; i<result.width(); ++i) {
             QPoint o = rgb_to_point(offsetMap.pixel(i, j));
-            result.setPixel(i, j, srcImage_->pixel(QPoint(i, j) + o));
+            QPoint sp = QPoint(i, j) + o;
+            if (src_bounds.contains(sp))
+                result.setPixel(i, j, srcImage_->pixel(sp));
+            else
+                qWarning() << sp << "out of source bounds";
         }
 
     return result;
