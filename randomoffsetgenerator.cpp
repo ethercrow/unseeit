@@ -19,6 +19,8 @@ RandomOffsetGenerator::RandomOffsetGenerator(const QImage& realMap, int r):
 QPoint RandomOffsetGenerator::operator()(QPoint p) {
     int rand_x, rand_y;
 
+    // TODO: more effective strategy for sparse real map
+
     do {
         rand_x = qrand()%width_;
         rand_y = qrand()%height_;

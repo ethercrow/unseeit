@@ -16,7 +16,7 @@
 const int R = 4;
 const double SIGMA2 = 20.f;
 const int PASS_COUNT = 12;
-const int LOD_MAX = 4;
+const int LOD_MAX = 3;
 
 namespace {
 
@@ -178,6 +178,8 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 
 void Resynthesizer::mergePatches(bool weighted)
 {
+    TRACE_ME
+
     QRect bounds(QPoint(0, 0), outputTexture_.size());
     int width = offsetMap_.width();
 

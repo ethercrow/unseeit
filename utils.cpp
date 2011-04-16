@@ -4,6 +4,7 @@
 
 #include <QColor>
 #include <qmath.h>
+#include <QtGlobal>
 
 QImage downscale_mask(const QImage mask, const QSize dstSize)
 {
@@ -39,17 +40,19 @@ COWMatrix<QPoint> resize_offset_map(const COWMatrix<QPoint> src, const QSize dst
 
     COWMatrix<QPoint> result(dstSize);
 
-    /*
-    QImage result = src.scaled(dstSize); // intentionally no smoothing
-
     qreal scale = static_cast<qreal>(dstSize.width())/src.width();
+    qreal inv_scale = 1.f/scale;
+    int sw = src.width();
+    int sh = src.height();
 
     for (int j=0; j<result.height(); ++j)
         for (int i=0; i<result.width(); ++i) {
-            QPoint scaled_offset = rgb_to_point(result.pixel(i, j))*scale;
-            result.setPixel(i, j, point_to_rgb(scaled_offset));
+            int source_x = qBound(0, qRound(i*inv_scale), sw-1);
+            int source_y = qBound(0, qRound(j*inv_scale), sh-1);
+
+            QPoint scaled_offset = src.get(source_x, source_y)*scale;
+            result.set(i, j, scaled_offset);
         }
-    */
 
     return result;
 }
