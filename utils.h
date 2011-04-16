@@ -6,6 +6,8 @@
 #include <QPoint>
 #include <QImage>
 
+#include "cowmatrix.h"
+
 struct ScopeTracer
 {
     ScopeTracer(const QString& name):name_(name) {
@@ -40,8 +42,8 @@ inline QRgb point_to_rgb(QPoint point) {
 
 QImage downscale_mask(const QImage mask, const QSize dstSize);
 
-QImage resize_offset_map(const QImage src, const QSize dstSize);
+COWMatrix<QPoint> resize_offset_map(const COWMatrix<QPoint> src, const QSize dstSize);
 
-QImage visualizeOffsetMap(const QImage& offsetMap);
+QImage visualizeOffsetMap(const COWMatrix<QPoint>& offsetMap);
 
 #endif

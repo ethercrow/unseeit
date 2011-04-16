@@ -33,10 +33,13 @@ QImage downscale_mask(const QImage mask, const QSize dstSize)
     return result;
 }
 
-QImage resize_offset_map(const QImage src, const QSize dstSize)
+COWMatrix<QPoint> resize_offset_map(const COWMatrix<QPoint> src, const QSize dstSize)
 {
     TRACE_ME
 
+    COWMatrix<QPoint> result(dstSize);
+
+    /*
     QImage result = src.scaled(dstSize); // intentionally no smoothing
 
     qreal scale = static_cast<qreal>(dstSize.width())/src.width();
@@ -46,19 +49,20 @@ QImage resize_offset_map(const QImage src, const QSize dstSize)
             QPoint scaled_offset = rgb_to_point(result.pixel(i, j))*scale;
             result.setPixel(i, j, point_to_rgb(scaled_offset));
         }
+    */
 
     return result;
 }
 
-QImage visualizeOffsetMap(const QImage& offsetMap)
+QImage visualizeOffsetMap(const COWMatrix<QPoint>& offsetMap)
 {
-    QImage result = offsetMap.convertToFormat(QImage::Format_RGB32);
+    QImage result(offsetMap.size(), QImage::Format_RGB32);
 
     // angle -> hue
     // magnitude -> saturation
     for (int j=0; j<offsetMap.height(); ++j)
         for (int i=0; i<offsetMap.width(); ++i) {
-            QPoint o = rgb_to_point(offsetMap.pixel(i, j));
+            QPoint o = offsetMap.get(i, j);
             int hue = 180/M_PI*qAtan2(o.x(), o.y());
             if (hue<0)
                 hue += 360;

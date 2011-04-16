@@ -5,28 +5,32 @@
 #include <QPoint>
 #include <QVector>
 
+#include "cowmatrix.h"
+
 class Resynthesizer
 {
 
 public:
     QImage inpaint(const QImage& inputTexture, const QImage& outputMap);
-    QImage buildOffsetMap(const QImage& inputTexture,
+    COWMatrix<QPoint> buildOffsetMap(const QImage& inputTexture,
                           const QImage& outputMap,
-                          const QImage& hint);
+                          const COWMatrix<QPoint>& hint);
     QImage inpaintHier(const QImage& inputTexture, const QImage& outputMap);
 
-    QImage offsetMap();
+    COWMatrix<QPoint> offsetMap();
 
 private:
     int coherence(QPoint p1, QPoint p2, int R);
     void mergePatches(bool weighted);
 
     // TODO: stop using QVector and QImage as matrices ffs
+    //       oh wow, there's some progress on that
+
     QVector<qreal> confidenceMap_;
     const QImage* inputTexture_;
-    const QImage* scoreMap_;
+    const COWMatrix<int>* scoreMap_;
     QImage outputTexture_;
-    QImage offsetMap_;
+    COWMatrix<QPoint> offsetMap_;
 
     QImage realMap_;
 };

@@ -1,9 +1,11 @@
 #include "window.h"
-#include "resynthesizer.h"
 
 #include <QDebug>
 #include <QString>
 #include <QResizeEvent>
+
+#include "resynthesizer.h"
+#include "utils.h"
 
 Window::Window(QWidget* parent):QWidget(parent),
     pictureImage_(NULL), overlayImage_(NULL),
@@ -60,7 +62,7 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
             QImage result = r.inpaintHier(*pictureImage_, *overlayImage_);
             resultLabel_->setPixmap(QPixmap::fromImage(result));
 
-            offsetMapLabel_->setPixmap(QPixmap::fromImage(r.offsetMap()));
+            offsetMapLabel_->setPixmap(QPixmap::fromImage(visualizeOffsetMap(r.offsetMap())));
             break;
         }
         case Qt::Key_Space:

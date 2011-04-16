@@ -5,6 +5,8 @@
 #include <QLabel>
 #include <QImage>
 
+#include "cowmatrix.h"
+
 class PatchMatchWindow: public QWidget
 {
     Q_OBJECT
@@ -21,7 +23,7 @@ protected:
 
 private:
     void launch();
-    QImage applyOffsets(const QImage& offsetMap);
+    QImage applyOffsets(const COWMatrix<QPoint>& offsetMap);
 
     QImage* dstImage_;
     QImage* srcImage_;

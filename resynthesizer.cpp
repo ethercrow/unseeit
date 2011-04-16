@@ -44,7 +44,7 @@ QImage Resynthesizer::inpaintHier(const QImage& inputTexture,
                               const QImage& outputMap)
 {
     bool first_pass = true;
-    QImage lodOffsetMap;
+    COWMatrix<QPoint> lodOffsetMap;
 
     for (int lod_level=LOD_MAX; lod_level>=0; --lod_level) {
         QSize lodSize = inputTexture.size()/(1<<lod_level);
@@ -58,7 +58,7 @@ QImage Resynthesizer::inpaintHier(const QImage& inputTexture,
                 Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 
         lodOffsetMap = buildOffsetMap(lodInputTexture, lodOutputMap,
-               first_pass?QImage():lodOffsetMap);
+               first_pass?COWMatrix<QPoint>():lodOffsetMap);
 
         if (first_pass)
             first_pass = false;
@@ -68,9 +68,9 @@ QImage Resynthesizer::inpaintHier(const QImage& inputTexture,
     return outputTexture_;
 }
 
-QImage Resynthesizer::buildOffsetMap(const QImage& inputTexture,
+COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
                       const QImage& outputMap,
-                      const QImage& hint)
+                      const COWMatrix<QPoint>& hint)
 {
     TRACE_ME
 
@@ -89,15 +89,15 @@ QImage Resynthesizer::buildOffsetMap(const QImage& inputTexture,
     outputTexture_ = inputTexture;
 
     if (hint.isNull()) {
-        offsetMap_ = inputTexture;
+        offsetMap_ = COWMatrix<QPoint>(inputTexture.size());
         // generate initial offsetmap
-        offsetMap_.fill(0);
+        offsetMap_.fill(QPoint(0, 0));
 
         RandomOffsetGenerator rog(realMap_, R);
         for (int j=0; j<outputMap.height(); ++j)
             for (int i=0; i<outputMap.width(); ++i)
                 if (!realMap_.pixelIndex(i, j))
-                    offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+                    offsetMap_.set(i, j, rog(i, j));
     } else {
         offsetMap_ = hint;
     }
@@ -145,9 +145,9 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
     inputTexture_ = &inputTexture;
     outputTexture_ = inputTexture;
 
-    offsetMap_ = inputTexture;
+    offsetMap_ = COWMatrix<QPoint>(inputTexture.size());
     // generate initial offsetmap
-    offsetMap_.fill(0);
+    offsetMap_.fill(QPoint(0, 0));
 
     // fill offsetmap with random offsets for unknows points
     RandomOffsetGenerator rog(realMap_, R);
@@ -155,7 +155,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
     for (int j=0; j<outputMap.height(); ++j)
         for (int i=0; i<outputMap.width(); ++i)
             if (!realMap_.pixelIndex(i, j)) {
-                offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
+                offsetMap_.set(i, j, rog(i, j));
                 confidenceMap_[j*outputMap.width()+i] = 1e-10;
             }
 
@@ -189,7 +189,7 @@ void Resynthesizer::mergePatches(bool weighted)
             for (int i=0; i<width; ++i) {
                 QPoint p(i, j);
                 if (!realMap_.pixelIndex(i, j)) {
-                    int score = (int)scoreMap_->pixel(p);
+                    int score = scoreMap_->get(p);
                     qreal reliability = qExp(-score/SIGMA2);
                     weightMap[j*width+i] = reliability;
                 }
@@ -207,7 +207,7 @@ void Resynthesizer::mergePatches(bool weighted)
                 for (int dj=-R; dj<=R; ++dj)
                     for (int di=-R; di<=R; ++di) {
                         QPoint dp = QPoint(di, dj);
-                        QPoint opinion_point = p + rgb_to_point(offsetMap_.pixel(p+dp));
+                        QPoint opinion_point = p + offsetMap_.get(p+dp);
 
                         QColor c(inputTexture_->pixel(opinion_point));
 
@@ -235,28 +235,8 @@ void Resynthesizer::mergePatches(bool weighted)
     confidenceMap_ = new_confidence_map;
 }
 
-QImage Resynthesizer::offsetMap()
+COWMatrix<QPoint> Resynthesizer::offsetMap()
 {
-    QImage result = offsetMap_.convertToFormat(QImage::Format_RGB32);
-
-    // angle -> hue
-    // magnitude -> saturation
-    for (int j=0; j<offsetMap_.height(); ++j)
-        for (int i=0; i<offsetMap_.width(); ++i) {
-            QPoint o = rgb_to_point(offsetMap_.pixel(i, j));
-            int hue = 180/M_PI*qAtan2(o.x(), o.y());
-            if (hue<0)
-                hue += 360;
-            if (hue==360)
-                hue = 0;
-
-            int value = 128;
-            int saturation = 255*sqrt(qreal(o.x()*o.x() + o.y()*o.y())/
-                    (offsetMap_.width()*offsetMap_.width() + offsetMap_.height()*offsetMap_.height()));
-            QColor c = QColor::fromHsv(hue, saturation, value);
-            result.setPixel(i, j, c.rgb());
-        }
-
-    return result;
+    return offsetMap_;
 }
 

@@ -66,7 +66,7 @@ void PatchMatchWindow::launch()
     update();
 }
 
-QImage PatchMatchWindow::applyOffsets(const QImage& offsetMap)
+QImage PatchMatchWindow::applyOffsets(const COWMatrix<QPoint>& offsetMap)
 {
     TRACE_ME
 
@@ -77,7 +77,7 @@ QImage PatchMatchWindow::applyOffsets(const QImage& offsetMap)
 
     for (int j=0; j<result.height(); ++j)
         for (int i=0; i<result.width(); ++i) {
-            QPoint o = rgb_to_point(offsetMap.pixel(i, j));
+            QPoint o = offsetMap.get(i, j);
             QPoint sp = QPoint(i, j) + o;
             if (src_bounds.contains(sp))
                 result.setPixel(i, j, srcImage_->pixel(sp));

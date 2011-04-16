@@ -3,6 +3,7 @@
 
 #include <QImage>
 #include <QPolygon>
+#include <cowmatrix.h>
 
 class SimilarityMapper
 {
@@ -10,9 +11,9 @@ public:
     // src, dst - argb32, src_mask - mono
     void init(const QImage& src, const QImage& dst, const QImage& srcMask, const QImage& dstMask);
     void init(const QImage& src, const QImage& dst);
-    QImage iterate(const QImage& dst);
+    COWMatrix<QPoint> iterate(const QImage& dst);
 
-    const QImage* scoreMap() { return &scoreMap_; };
+    const COWMatrix<int>* scoreMap() { return &scoreMap_; };
     const QVector<double>* reliabilityMap() { return &reliabilityMap_; };
     const QVector<qreal> confidenceMap();
 
@@ -21,12 +22,12 @@ private:
         QPoint candidate_offset, int* score);
     void report_max_score();
 
-    QImage scoreMap_;
+    COWMatrix<int> scoreMap_;
 
     // reliability = exp(-score/SIGMA2);
     QVector<qreal> reliabilityMap_;
 
-    QImage offsetMap_;
+    COWMatrix<QPoint> offsetMap_;
 
     QPolygon pointsToFill_;
 

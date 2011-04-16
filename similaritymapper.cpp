@@ -29,23 +29,23 @@ void SimilarityMapper::init(const QImage& src,
     TRACE_ME
 
     // offsetmap has the same dimensions as dst
-    offsetMap_ = dst;
+    offsetMap_ = COWMatrix<QPoint>(dst.size());
     src_ = src;
     srcMask_ = srcMask;
     dstMask_ = dstMask;
 
-    scoreMap_ = dst;
+    scoreMap_ = COWMatrix<int>(dst.size());
     scoreMap_.fill(0);
     reliabilityMap_ = QVector<qreal>(scoreMap_.width()*scoreMap_.height(), 1.0);
 
     // fill offsetmap with random offsets for unknows points
-    offsetMap_.fill(0);
+    offsetMap_.fill(QPoint(0, 0));
     RandomOffsetGenerator rog(srcMask, R);
     for (int j=0; j<offsetMap_.height(); ++j)
         for (int i=0; i<offsetMap_.width(); ++i)
             if (!dstMask.pixelIndex(i, j)) {
-                offsetMap_.setPixel(i, j, point_to_rgb(rog(i, j)));
-                scoreMap_.setPixel(i, j, INT_MAX);
+                offsetMap_.set(i, j, rog(i, j));
+                scoreMap_.set(i, j, INT_MAX);
                 reliabilityMap_[j*dst_.width()+i] = 0.0;
             }
 
@@ -58,7 +58,7 @@ void SimilarityMapper::init(const QImage& src,
     qDebug() << pointsToFill_.size() << "points to map";
 }
 
-QImage SimilarityMapper::iterate(const QImage& dst)
+COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 {
     TRACE_ME
 
@@ -77,7 +77,7 @@ QImage SimilarityMapper::iterate(const QImage& dst)
         const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
 
         foreach(QPoint p, pointsToFill_) {
-            QPoint best_offset = rgb_to_point(offsetMap_.pixel(p));
+            QPoint best_offset = offsetMap_.get(p);
 
             int best_score = INT_MAX;
             updateSource(p, &best_offset, best_offset, &best_score);
@@ -102,13 +102,13 @@ QImage SimilarityMapper::iterate(const QImage& dst)
                 {
                     // our neighbour is unknown point too
                     // maybe his offset is better than ours
-                    QPoint neighbours_offset = rgb_to_point(offsetMap_.pixel(p+dp));
+                    QPoint neighbours_offset = offsetMap_.get(p+dp);
                     updateSource(p, &best_offset, neighbours_offset, &best_score);
                 }
             }
 
             // save found offset
-            offsetMap_.setPixel(p, point_to_rgb(best_offset));
+            offsetMap_.set(p, best_offset);
         }
         std::reverse(pointsToFill_.begin(), pointsToFill_.end());
     }
@@ -127,7 +127,7 @@ void SimilarityMapper::report_max_score()
     double mean_score = 0;
 
     foreach(QPoint p, pointsToFill_) {
-        int score = (int)scoreMap_.pixel(p);
+        int score = scoreMap_.get(p);
         max_score = qMax(max_score, score);
         min_score = qMin(min_score, score);
         mean_score += score;
@@ -187,9 +187,10 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
         return false;
 
     *best_score = score;
-    scoreMap_.setPixel(p, (QRgb)qCeil(score));
+    scoreMap_.set(p, qCeil(score));
     reliabilityMap_[p.y()*dst_.width() + p.x()] = qExp(-score/SIGMA2);
     *best_offset = candidate_offset;
+
     return true;
 }
 
