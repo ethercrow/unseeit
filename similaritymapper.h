@@ -29,6 +29,7 @@ private:
 
     COWMatrix<QPoint> offsetMap_;
 
+    QPolygon reversePointsToFill_;
     QPolygon pointsToFill_;
 
     // read-only

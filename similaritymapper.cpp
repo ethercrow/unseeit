@@ -9,7 +9,7 @@
 #include "utils.h"
 
 const int R = 4;
-const int PASS_COUNT = 8;
+const int PASS_COUNT = 12;
 const double SIGMA2 = 200.f;
 
 void SimilarityMapper::init(const QImage& src, const QImage& dst)
@@ -50,18 +50,21 @@ void SimilarityMapper::init(const QImage& src,
             }
 
     // create list of unknown points
-    for (int j=0; j<dst.height(); ++j)
+    for (int j=0; j<dst.height(); ++j) {
         for (int i=0, i_end = dst.width(); i<i_end; ++i)
             if (!dstMask.pixelIndex(i, j))
                 pointsToFill_ << QPoint(i, j);
+
+        for (int i=dst.width()-1; i >= 0; --i)
+            if (!dstMask.pixelIndex(i, j))
+                reversePointsToFill_ << QPoint(i, j);
+    }
 
     qDebug() << pointsToFill_.size() << "points to map";
 }
 
 COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 {
-    TRACE_ME
-
     dst_ = dst;
     int init_search_range = qMax(src_.width(), src_.height());
 
@@ -69,12 +72,21 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
     neighbour_offsets_even << QPoint(0, -1) << QPoint(-1, 0);
     neighbour_offsets_odd << QPoint(0, 1) << QPoint(1, 0);
 
+    QVector<QPolygon> neighbour_offsets_passes(4);
+    neighbour_offsets_passes[0] << QPoint{0, -1} << QPoint{-1, 0};
+    neighbour_offsets_passes[1] << QPoint{0,  1} << QPoint{-1, 0};
+    neighbour_offsets_passes[2] << QPoint{0,  1} << QPoint{ 1, 0};
+    neighbour_offsets_passes[3] << QPoint{0, -1} << QPoint{ 1, 0};
+
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         // refine pass
         // there are two kinds of places where we can look for better matches:
         // 1. Obviously, random places
         // 2. Propagation: trying points near our neighbour's source
-        const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
+
+        //const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
+        const QPolygon& neighbour_offsets = neighbour_offsets_passes[pass%4];
+        const QPolygon& points = (pass%2)?reversePointsToFill_:pointsToFill_;
 
         foreach(QPoint p, pointsToFill_) {
             QPoint best_offset = offsetMap_.get(p);
@@ -110,7 +122,10 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
             // save found offset
             offsetMap_.set(p, best_offset);
         }
-        std::reverse(pointsToFill_.begin(), pointsToFill_.end());
+        if (pass%2) {
+            std::reverse(pointsToFill_.begin(), pointsToFill_.end());
+            std::reverse(reversePointsToFill_.begin(), reversePointsToFill_.end());
+        }
     }
 
     report_max_score();
@@ -120,8 +135,6 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 
 void SimilarityMapper::report_max_score()
 {
-    TRACE_ME
-
     int max_score = 0;
     int min_score = INT_MAX;
     double mean_score = 0;
