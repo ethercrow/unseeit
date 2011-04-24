@@ -7,9 +7,10 @@ Hi!
 BUILD
 =====
 
-qmake
-make
+::
 
+    qmake
+    make
 
 USAGE
 =====
