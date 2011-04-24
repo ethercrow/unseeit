@@ -5,7 +5,8 @@
 #include "similaritymapper.h"
 #include "utils.h"
 
-PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent)
+PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
+    srcImage_(NULL), dstImage_(NULL)
 {
     srcLabel_ = new QLabel(this);
     srcLabel_->setGeometry(0, 0, 500, 500);
