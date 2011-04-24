@@ -83,6 +83,11 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
     }
 }
 
+void Window::wheelEvent(QWheelEvent* evt)
+{
+    paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
+}
+
 Window::~Window()
 {
     delete pictureImage_;

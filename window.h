@@ -19,6 +19,7 @@ public:
 protected:
     virtual void mouseMoveEvent(QMouseEvent*);
     virtual void keyReleaseEvent(QKeyEvent*);
+    virtual void wheelEvent(QWheelEvent*);
 
 private:
     QLabel* imageLabel_;
