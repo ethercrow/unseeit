@@ -68,10 +68,6 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
     dst_ = dst;
     int init_search_range = qMax(src_.width(), src_.height());
 
-    QPolygon neighbour_offsets_even, neighbour_offsets_odd;
-    neighbour_offsets_even << QPoint(0, -1) << QPoint(-1, 0);
-    neighbour_offsets_odd << QPoint(0, 1) << QPoint(1, 0);
-
     QVector<QPolygon> neighbour_offsets_passes(4);
     neighbour_offsets_passes[0] << QPoint{0, -1} << QPoint{-1, 0};
     neighbour_offsets_passes[1] << QPoint{0,  1} << QPoint{-1, 0};
@@ -84,7 +80,6 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
         // 1. Obviously, random places
         // 2. Propagation: trying points near our neighbour's source
 
-        //const QPolygon& neighbour_offsets = (pass%2)?neighbour_offsets_odd:neighbour_offsets_even;
         const QPolygon& neighbour_offsets = neighbour_offsets_passes[pass%4];
         const QPolygon& points = (pass%2)?reversePointsToFill_:pointsToFill_;
 
@@ -105,7 +100,7 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
                 updateSource(p, &best_offset, o, &best_score);
             }
 
-            // propagate good guess from left and above (right and below on odd iterations)
+            // propagate good guess
             foreach (QPoint dp, neighbour_offsets) {
                 QPoint pdp = p+dp;
                 if (pdp.x() >= 0 && pdp.y() >= 0 &&
@@ -158,12 +153,18 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
 {
     QRect bounds(QPoint(0, 0), src_.size());
 
+    int dw = dst_.width();
+    int dh = dst_.height();
+
+    int sw = src_.width();
+    int sh = src_.height();
+
     // source point
     QPoint s = p + candidate_offset;
 
     // fuck the edge cases
-    if (p.x() < R || p.x() >= dst_.width()-R || p.y() < R || p.y() >= dst_.height()-R ||
-        s.x() < R || s.x() >= src_.width()-R || s.y() < R || s.y() >= src_.height()-R)
+    if (p.x() < R || p.x() >= dw-R || p.y() < R || p.y() >= dh-R ||
+        s.x() < R || s.x() >= sw-R || s.y() < R || s.y() >= sh-R)
         return false;
 
     // we need only true real patches as sources
@@ -175,24 +176,26 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
 
     double score = 0;
     double weight_sum = 0;
-    for (int j=-R; j<=R; ++j)
+
+    double* weight_ptr = &reliabilityMap_[(p.y()-R)*dw + (p.x()-R)];
+    QRgb* ns_pixel_ptr = reinterpret_cast<QRgb*>(src_.bits()) + (s.y()-R)*sw + (s.x()-R);
+    QRgb* np_pixel_ptr = reinterpret_cast<QRgb*>(dst_.bits()) + (p.y()-R)*dw + (p.x()-R);
+    for (int j=-R; j<=R; ++j) {
         for (int i=-R; i<=R; ++i) {
-            QPoint dp = QPoint(i, j);
+            quint8* ns_rgb = reinterpret_cast<quint8*>(ns_pixel_ptr);
+            quint8* np_rgb = reinterpret_cast<quint8*>(np_pixel_ptr);
 
-            QPoint near_p = p + dp;
-            QPoint near_s = s + dp;
+            score += ssd4(ns_rgb, np_rgb)*(*weight_ptr);
+            weight_sum += *weight_ptr;
 
-            QRgb ns_pixel = src_.pixel(near_s);
-            QRgb np_pixel = dst_.pixel(near_p);
-
-            quint8* ns_rgb = reinterpret_cast<quint8*>(&ns_pixel);
-            quint8* np_rgb = reinterpret_cast<quint8*>(&np_pixel);
-
-            double weight = reliabilityMap_[near_p.y()*dst_.width() + near_p.x()];
-
-            score += ssd4(ns_rgb, np_rgb)*weight;
-            weight_sum += weight;
+            ++weight_ptr;
+            ++ns_pixel_ptr;
+            ++np_pixel_ptr;
         }
+        weight_ptr += dw - 2*R - 1;
+        ns_pixel_ptr += sw - 2*R - 1;
+        np_pixel_ptr += dw - 2*R - 1;
+    }
 
     score /= weight_sum;
 

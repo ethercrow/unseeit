@@ -5,19 +5,22 @@
 #include <QString>
 #include <QPoint>
 #include <QImage>
+#include <QTime>
 
 #include "cowmatrix.h"
 
 struct ScopeTracer
 {
-    ScopeTracer(const QString& name):name_(name) {
+    ScopeTracer(const QString& name):name_(name), time_() {
         qDebug() << name_ << " begin";
+        time_.start();
     }
     ~ScopeTracer() {
-        qDebug() << name_ << " end";
+        qDebug() << name_ << " end" << time_.elapsed();
     }
 private:
     QString name_;
+    QTime time_;
 };
 
 #define TRACE_ME \
