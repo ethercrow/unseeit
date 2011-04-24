@@ -88,7 +88,7 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
         const QPolygon& neighbour_offsets = neighbour_offsets_passes[pass%4];
         const QPolygon& points = (pass%2)?reversePointsToFill_:pointsToFill_;
 
-        foreach(QPoint p, pointsToFill_) {
+        foreach(QPoint p, points) {
             QPoint best_offset = offsetMap_.get(p);
 
             int best_score = INT_MAX;

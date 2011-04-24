@@ -179,13 +179,14 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 void Resynthesizer::mergePatches(bool weighted)
 {
     QRect bounds(QPoint(0, 0), outputTexture_.size());
-    int width = offsetMap_.width();
+    int width  = offsetMap_.width();
+    int height = offsetMap_.height();
 
-    QVector<qreal> weightMap(offsetMap_.height()*width, 1.0);
+    QVector<qreal> weightMap(height*width, 1.0);
     QVector<qreal> new_confidence_map(confidenceMap_);
 
     if (weighted)
-        for (int j=0; j<offsetMap_.height(); ++j)
+        for (int j=0; j<height; ++j)
             for (int i=0; i<width; ++i) {
                 QPoint p(i, j);
                 if (!realMap_.pixelIndex(i, j)) {

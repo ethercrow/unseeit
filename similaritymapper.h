@@ -3,7 +3,7 @@
 
 #include <QImage>
 #include <QPolygon>
-#include <cowmatrix.h>
+#include "cowmatrix.h"
 
 class SimilarityMapper
 {

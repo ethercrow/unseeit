@@ -7,6 +7,9 @@
 #include "resynthesizer.h"
 #include "utils.h"
 
+const int MAX_PAINT_SIZE = 20;
+const int MIN_PAINT_SIZE = 1;
+
 Window::Window(QWidget* parent):QWidget(parent),
     pictureImage_(NULL), overlayImage_(NULL),
     paintSize_(3)
@@ -68,6 +71,14 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
         case Qt::Key_Space:
             overlayImage_->fill(0);
             overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+            break;
+        case Qt::Key_Plus:
+            if (paintSize_ < MAX_PAINT_SIZE)
+                ++paintSize_;
+            break;
+        case Qt::Key_Minus:
+            if (paintSize_ > MIN_PAINT_SIZE)
+                --paintSize_;
             break;
     }
 }
