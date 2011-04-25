@@ -3,6 +3,7 @@
 
 #include <QVector>
 #include <QPoint>
+#include <QtGlobal>
 
 template <typename T>
 class COWMatrix
@@ -19,6 +20,7 @@ public:
     }
 
     T* ptrAt(int i, int j) {
+        Q_ASSERT(i>=0 && i<w_ && j>=0 && j<h_);
         return &data_[j*w_+i];
     }
 
@@ -31,6 +33,7 @@ public:
     }
 
     const T& get(int i, int j) const {
+        Q_ASSERT(i>=0 && i<w_ && j>=0 && j<h_);
         return data_[j*w_+i];
     }
 
@@ -39,6 +42,7 @@ public:
     }
 
     void set(int i, int j, const T& value) {
+        Q_ASSERT(i>=0 && i<w_ && j>=0 && j<h_);
         data_[j*w_+i] = value;
     }
 

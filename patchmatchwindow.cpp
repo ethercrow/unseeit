@@ -73,8 +73,8 @@ QImage PatchMatchWindow::applyOffsets(const COWMatrix<QPoint>& offsetMap)
 
     auto src_bounds = srcImage_->rect();
 
-    auto result = *dstImage_;
-    result.fill(0);
+    QImage result(*dstImage_);
+    result.fill(QColor(Qt::black).rgba());
 
     for (int j=0; j<result.height(); ++j)
         for (int i=0; i<result.width(); ++i) {

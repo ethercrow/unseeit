@@ -178,7 +178,7 @@ QImage Resynthesizer::inpaint(const QImage& inputTexture,
 
 void Resynthesizer::mergePatches(bool weighted)
 {
-    QRect bounds(QPoint(0, 0), outputTexture_.size());
+    QRect bounds = outputTexture_.rect();
     int width  = offsetMap_.width();
     int height = offsetMap_.height();
 
@@ -196,7 +196,7 @@ void Resynthesizer::mergePatches(bool weighted)
                 }
             }
 
-    for (int j=0; j<outputTexture_.height(); ++j)
+    for (int j=0; j<height; ++j)
         for (int i=0; i<width; ++i)
             if (!realMap_.pixelIndex(i, j)) {
                 QPoint p(i, j);
@@ -207,12 +207,15 @@ void Resynthesizer::mergePatches(bool weighted)
 
                 for (int dj=-R; dj<=R; ++dj)
                     for (int di=-R; di<=R; ++di) {
-                        QPoint dp = QPoint(di, dj);
-                        QPoint opinion_point = p + offsetMap_.get(p+dp);
+                        QPoint near_p = p + QPoint(di, dj);
+                        if (!bounds.contains(near_p))
+                            continue;
+
+                        QPoint opinion_point = p + offsetMap_.get(near_p);
 
                         QColor c(inputTexture_->pixel(opinion_point));
 
-                        int idx = (p+dp).y()*width + (p+dp).x();
+                        int idx = (near_p).y()*width + (near_p).x();
                         qreal weight = (weighted)
                                             ?(weightMap[idx]*confidenceMap_[idx])
                                             :1.0;
