@@ -22,11 +22,15 @@ protected:
     virtual void wheelEvent(QWheelEvent*);
 
 private:
+    void updateBrush();
+
     QLabel* imageLabel_;
     QLabel* overlayLabel_;
     QLabel* resultLabel_;
     QLabel* offsetMapLabel_;
     QLabel* scoreMapLabel_;
+
+    QLabel* brushLabel_;
 
     QImage* pictureImage_;
     QImage* overlayImage_;

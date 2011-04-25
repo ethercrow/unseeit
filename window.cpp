@@ -2,7 +2,9 @@
 
 #include <QDebug>
 #include <QString>
+#include <QPainter>
 #include <QResizeEvent>
+#include <QBitmap>
 
 #include "resynthesizer.h"
 #include "utils.h"
@@ -19,6 +21,28 @@ Window::Window(QWidget* parent):QWidget(parent),
     resultLabel_    = new QLabel(this);
     offsetMapLabel_ = new QLabel(this);
     scoreMapLabel_  = new QLabel(this);
+
+    brushLabel_ = new QLabel(this);
+    brushLabel_->setGeometry(0, 0, 2*paintSize_+1, 2*paintSize_+1);
+    updateBrush();
+
+    setMouseTracking(true);
+
+    overlayLabel_->setMouseTracking(true);
+    resultLabel_->setMouseTracking(true);
+    offsetMapLabel_->setMouseTracking(true);
+    scoreMapLabel_->setMouseTracking(true);
+}
+
+void Window::updateBrush()
+{
+    QPixmap brush_pixmap(2*paintSize_+1, 2*paintSize_+1);
+
+    QPainter painter(&brush_pixmap);
+    painter.fillRect(brush_pixmap.rect(), Qt::black);
+
+    brushLabel_->resize(brush_pixmap.size());
+    brushLabel_->setPixmap(brush_pixmap);
 }
 
 void Window::loadImage(const QString& filename)
@@ -49,11 +73,15 @@ void Window::mouseMoveEvent(QMouseEvent* evt)
 {
     QPoint location = evt->pos();
 
-    for (int j=-paintSize_; j<=paintSize_; ++j)
-        for (int i=-paintSize_; i<=paintSize_; ++i)
-            overlayImage_->setPixel(location+QPoint(i,j), 0xff000000);
+    if (evt->buttons() & Qt::LeftButton) {
+        for (int j=-paintSize_; j<=paintSize_; ++j)
+            for (int i=-paintSize_; i<=paintSize_; ++i)
+                overlayImage_->setPixel(location+QPoint(i,j), 0xff000000);
+        overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    }
 
-    overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    auto dp = location - brushLabel_->rect().center();
+    brushLabel_->move(dp);
 }
 
 void Window::keyReleaseEvent(QKeyEvent* evt)
@@ -75,10 +103,12 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
         case Qt::Key_Plus:
             if (paintSize_ < MAX_PAINT_SIZE)
                 ++paintSize_;
+            updateBrush();
             break;
         case Qt::Key_Minus:
             if (paintSize_ > MIN_PAINT_SIZE)
                 --paintSize_;
+            updateBrush();
             break;
     }
 }
@@ -86,6 +116,7 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
 void Window::wheelEvent(QWheelEvent* evt)
 {
     paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
+    updateBrush();
 }
 
 Window::~Window()
