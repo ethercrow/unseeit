@@ -13,9 +13,11 @@ public:
     void init(const QImage& src, const QImage& dst);
     COWMatrix<QPoint> iterate(const QImage& dst);
 
-    const COWMatrix<int>* scoreMap() { return &scoreMap_; };
-    const QVector<double>* reliabilityMap() { return &reliabilityMap_; };
-    const QVector<qreal> confidenceMap();
+    const COWMatrix<int>* scoreMap() const { return &scoreMap_; };
+    const QVector<double>* reliabilityMap() const { return &reliabilityMap_; };
+    const QVector<qreal> confidenceMap() const;
+
+    double meanScore() const { return meanScore_; }
 
 private:
     bool updateSource(QPoint p, QPoint* current_offset,
@@ -37,6 +39,8 @@ private:
     QImage src_;
     QImage srcMask_;
     QImage dstMask_;
+
+    double meanScore_;
 };
 
 #endif

@@ -132,19 +132,19 @@ void SimilarityMapper::report_max_score()
 {
     int max_score = 0;
     int min_score = INT_MAX;
-    double mean_score = 0;
+    meanScore_ = 0;
 
     foreach(QPoint p, pointsToFill_) {
         int score = scoreMap_.get(p);
         max_score = qMax(max_score, score);
         min_score = qMin(min_score, score);
-        mean_score += score;
+        meanScore_ += score;
     }
 
-    mean_score /= pointsToFill_.size();
+    meanScore_ /= pointsToFill_.size();
 
     qDebug() << "score : max =" << max_score
-        << "mean =" << mean_score
+        << "mean =" << meanScore_
         << "min =" << min_score;
 }
 

@@ -113,13 +113,21 @@ COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
 
     sm.init(inputTexture, outputTexture_, realMap_, realMap_);
 
+    double prev_mean_score = 4.f*256*256;
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         std::cout << "." << std::flush;
         // update offsetMap_
         offsetMap_ = sm.iterate(outputTexture_);
-        scoreMap_ = sm.scoreMap();
 
+        scoreMap_ = sm.scoreMap();
         mergePatches(true);
+
+        double mean_score = sm.meanScore();
+        if (mean_score > prev_mean_score*0.995 && mean_score <= prev_mean_score) {
+            // local minimum sort of found
+            break;
+        }
+        prev_mean_score = mean_score;
     }
     std::cout << std::endl;
 
