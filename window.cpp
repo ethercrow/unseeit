@@ -78,6 +78,11 @@ void Window::mouseMoveEvent(QMouseEvent* evt)
             for (int i=-paintSize_; i<=paintSize_; ++i)
                 overlayImage_->setPixel(location+QPoint(i,j), 0xff000000);
         overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    } else if (evt->buttons() & Qt::RightButton) {
+        for (int j=-paintSize_; j<=paintSize_; ++j)
+            for (int i=-paintSize_; i<=paintSize_; ++i)
+                overlayImage_->setPixel(location+QPoint(i,j), 0x00000000);
+        overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
     }
 
     auto dp = location - brushLabel_->rect().center();
