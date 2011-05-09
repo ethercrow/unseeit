@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QResizeEvent>
 #include <QBitmap>
+#include <qmath.h>
 
 #include "resynthesizer.h"
 #include "utils.h"
@@ -12,26 +13,36 @@
 const int MAX_PAINT_SIZE = 20;
 const int MIN_PAINT_SIZE = 1;
 
-Window::Window(QWidget* parent):QWidget(parent),
+Window::Window(QWidget* parent):QGraphicsView(parent),
     pictureImage_(NULL), overlayImage_(NULL),
     paintSize_(3)
 {
-    imageLabel_     = new QLabel(this);
-    overlayLabel_   = new QLabel(this);
-    resultLabel_    = new QLabel(this);
-    offsetMapLabel_ = new QLabel(this);
-    scoreMapLabel_  = new QLabel(this);
+    setGeometry(0, 0, 1024, 768);
+    setAlignment(0);
 
-    brushLabel_ = new QLabel(this);
-    brushLabel_->setGeometry(0, 0, 2*paintSize_+1, 2*paintSize_+1);
-    updateBrush();
-
+    scene_ = new QGraphicsScene(this);
+    setScene(scene_);
     setMouseTracking(true);
 
-    overlayLabel_->setMouseTracking(true);
-    resultLabel_->setMouseTracking(true);
-    offsetMapLabel_->setMouseTracking(true);
-    scoreMapLabel_->setMouseTracking(true);
+    rootItem_      = new QGraphicsRectItem;
+    imageItem_     = new QGraphicsPixmapItem(rootItem_);
+    overlayItem_   = new QGraphicsPixmapItem{imageItem_};
+    resultItem_    = new QGraphicsPixmapItem(rootItem_);
+    offsetMapItem_ = new QGraphicsPixmapItem(rootItem_);
+    scoreMapItem_  = new QGraphicsPixmapItem(rootItem_);
+
+    brushItem_ = new QGraphicsPixmapItem;
+
+    imageItem_->setAcceptHoverEvents(true);
+    overlayItem_->setAcceptHoverEvents(true);
+    resultItem_->setAcceptHoverEvents(true);
+    offsetMapItem_->setAcceptHoverEvents(true);
+    scoreMapItem_->setAcceptHoverEvents(true);
+    brushItem_->setAcceptHoverEvents(true);
+
+    brushItem_->setOpacity(0.5);
+
+    scene_->addItem(rootItem_);
 }
 
 void Window::updateBrush()
@@ -41,8 +52,7 @@ void Window::updateBrush()
     QPainter painter(&brush_pixmap);
     painter.fillRect(brush_pixmap.rect(), Qt::black);
 
-    brushLabel_->resize(brush_pixmap.size());
-    brushLabel_->setPixmap(brush_pixmap);
+    brushItem_->setPixmap(brush_pixmap);
 }
 
 void Window::loadImage(const QString& filename)
@@ -53,40 +63,59 @@ void Window::loadImage(const QString& filename)
         qDebug() << "loading image failed";
     }
     qDebug() << "format:" << pictureImage_->format();
-    imageLabel_->setPixmap(QPixmap::fromImage(*pictureImage_));
+    imageItem_->setPixmap(QPixmap::fromImage(*pictureImage_));
 
     delete overlayImage_;
     overlayImage_ = new QImage(pictureImage_->size(), QImage::Format_ARGB32);
     overlayImage_->fill(0);
 
-    QRect frame = QRect(0, 0, pictureImage_->width(), pictureImage_->height());
-    imageLabel_->setGeometry(frame);
-    overlayLabel_->setGeometry(frame);
-    resultLabel_->setGeometry(frame.translated(frame.width(), 0));
-    offsetMapLabel_->setGeometry(frame.translated(frame.width(), frame.height()));
-    scoreMapLabel_->setGeometry(frame.translated(0, frame.height()));
+    QRect frame = pictureImage_->rect();
+    imageItem_->setPos(0, 0);
+    overlayItem_->setPos(0, 0);
+    resultItem_->setPos(frame.width(), 0);
+    offsetMapItem_->setPos(frame.width(), frame.height());
+    scoreMapItem_->setPos(0, frame.height());
+    scene_->setSceneRect(0, 0, frame.width()*2, frame.height()*2);
+}
 
-    this->resize(frame.width()*2, frame.height()*2);
+void Window::mousePressEvent(QMouseEvent* evt)
+{
+    if (evt->buttons() & Qt::MiddleButton) {
+        prevPan_ = mapToScene(evt->pos());
+        setCursor(Qt::ClosedHandCursor);
+    }
+}
+
+void Window::mouseReleaseEvent(QMouseEvent* evt)
+{
+    if (evt->buttons() & Qt::MiddleButton) {
+        setCursor(Qt::ArrowCursor);
+    }
 }
 
 void Window::mouseMoveEvent(QMouseEvent* evt)
 {
-    QPoint location = evt->pos();
+    QPoint draw_location = (mapToScene(evt->pos()) + rootItem_->pos()).toPoint();
 
     if (evt->buttons() & Qt::LeftButton) {
         for (int j=-paintSize_; j<=paintSize_; ++j)
             for (int i=-paintSize_; i<=paintSize_; ++i)
-                overlayImage_->setPixel(location+QPoint(i,j), 0xff000000);
-        overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+                overlayImage_->setPixel(draw_location+QPoint(i,j), 0xff000000);
+        overlayItem_->setPixmap(QPixmap::fromImage(*overlayImage_));
     } else if (evt->buttons() & Qt::RightButton) {
         for (int j=-paintSize_; j<=paintSize_; ++j)
             for (int i=-paintSize_; i<=paintSize_; ++i)
-                overlayImage_->setPixel(location+QPoint(i,j), 0x00000000);
-        overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+                overlayImage_->setPixel(draw_location+QPoint(i,j), 0x00000000);
+        overlayItem_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    } else if (evt->buttons() & Qt::MiddleButton) {
+        auto pan_to = mapToScene(evt->pos());
+        QPointF dp = pan_to - prevPan_;
+        qDebug() << dp;
+        rootItem_->moveBy(dp.x(), dp.y());
+        prevPan_ = pan_to;
     }
 
-    auto dp = location - brushLabel_->rect().center();
-    brushLabel_->move(dp);
+    brushItem_->setPos(draw_location - QPoint(paintSize_, paintSize_));
 }
 
 void Window::keyReleaseEvent(QKeyEvent* evt)
@@ -96,14 +125,14 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
             Resynthesizer r;
 
             QImage result = r.inpaintHier(*pictureImage_, *overlayImage_);
-            resultLabel_->setPixmap(QPixmap::fromImage(result));
+            resultItem_->setPixmap(QPixmap::fromImage(result));
 
-            offsetMapLabel_->setPixmap(QPixmap::fromImage(visualizeOffsetMap(r.offsetMap())));
+            offsetMapItem_->setPixmap(QPixmap::fromImage(visualizeOffsetMap(r.offsetMap())));
             break;
         }
         case Qt::Key_Space:
             overlayImage_->fill(0);
-            overlayLabel_->setPixmap(QPixmap::fromImage(*overlayImage_));
+            overlayItem_->setPixmap(QPixmap::fromImage(*overlayImage_));
             break;
         case Qt::Key_Plus:
             if (paintSize_ < MAX_PAINT_SIZE)
@@ -120,8 +149,15 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
 
 void Window::wheelEvent(QWheelEvent* evt)
 {
-    paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
-    updateBrush();
+    if (evt->modifiers() & Qt::ControlModifier) {
+        // zoom workspace
+        qreal dscale = pow((double)2, evt->delta()/480.0);
+        scale(dscale, dscale);
+    } else {
+        // scale brush
+        paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
+        updateBrush();
+    }
 }
 
 Window::~Window()
@@ -129,3 +165,4 @@ Window::~Window()
     delete pictureImage_;
     delete overlayImage_;
 }
+
