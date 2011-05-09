@@ -76,6 +76,8 @@ void Window::loadImage(const QString& filename)
     offsetMapItem_->setPos(frame.width(), frame.height());
     scoreMapItem_->setPos(0, frame.height());
     scene_->setSceneRect(0, 0, frame.width()*2, frame.height()*2);
+
+    updateBrush();
 }
 
 void Window::mousePressEvent(QMouseEvent* evt)
