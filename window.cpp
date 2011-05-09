@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QResizeEvent>
 #include <QBitmap>
+#include <qmath.h>
 
 #include "resynthesizer.h"
 #include "utils.h"
@@ -124,8 +125,15 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
 
 void Window::wheelEvent(QWheelEvent* evt)
 {
-    paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
-    updateBrush();
+    if (evt->modifiers() & Qt::ControlModifier) {
+        // zoom workspace
+        qreal dscale = pow((double)2, evt->delta()/480.0);
+        scale(dscale, dscale);
+    } else {
+        // scale brush
+        paintSize_ = qBound(MIN_PAINT_SIZE, paintSize_+(evt->delta()/120), MAX_PAINT_SIZE);
+        updateBrush();
+    }
 }
 
 Window::~Window()
