@@ -19,12 +19,16 @@ public:
     void loadImage(const QString& filename);
 
 protected:
+    virtual void mousePressEvent(QMouseEvent*);
+    virtual void mouseReleaseEvent(QMouseEvent*);
     virtual void mouseMoveEvent(QMouseEvent*);
     virtual void keyReleaseEvent(QKeyEvent*);
     virtual void wheelEvent(QWheelEvent*);
 
 private:
     QGraphicsScene* scene_;
+
+    QGraphicsRectItem* rootItem_;
 
     QGraphicsPixmapItem* imageItem_;
     QGraphicsPixmapItem* overlayItem_;
@@ -36,6 +40,8 @@ private:
 
     QImage* pictureImage_;
     QImage* overlayImage_;
+
+    QPointF prevPan_;
 
     int paintSize_;
 

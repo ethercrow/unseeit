@@ -17,17 +17,19 @@ Window::Window(QWidget* parent):QGraphicsView(parent),
     pictureImage_(NULL), overlayImage_(NULL),
     paintSize_(3)
 {
-    this->setGeometry(0, 0, 1024, 768);
+    setGeometry(0, 0, 1024, 768);
+    setAlignment(0);
 
     scene_ = new QGraphicsScene(this);
     setScene(scene_);
     setMouseTracking(true);
 
-    imageItem_     = new QGraphicsPixmapItem;
+    rootItem_      = new QGraphicsRectItem;
+    imageItem_     = new QGraphicsPixmapItem(rootItem_);
     overlayItem_   = new QGraphicsPixmapItem{imageItem_};
-    resultItem_    = new QGraphicsPixmapItem;
-    offsetMapItem_ = new QGraphicsPixmapItem;
-    scoreMapItem_  = new QGraphicsPixmapItem;
+    resultItem_    = new QGraphicsPixmapItem(rootItem_);
+    offsetMapItem_ = new QGraphicsPixmapItem(rootItem_);
+    scoreMapItem_  = new QGraphicsPixmapItem(rootItem_);
 
     brushItem_ = new QGraphicsPixmapItem;
 
@@ -40,11 +42,7 @@ Window::Window(QWidget* parent):QGraphicsView(parent),
 
     brushItem_->setOpacity(0.5);
 
-    scene_->addItem(imageItem_);
-    scene_->addItem(resultItem_);
-    scene_->addItem(offsetMapItem_);
-    scene_->addItem(scoreMapItem_);
-    scene_->addItem(brushItem_);
+    scene_->addItem(rootItem_);
 }
 
 void Window::updateBrush()
@@ -80,18 +78,44 @@ void Window::loadImage(const QString& filename)
     scene_->setSceneRect(0, 0, frame.width()*2, frame.height()*2);
 }
 
+void Window::mousePressEvent(QMouseEvent* evt)
+{
+    if (evt->buttons() & Qt::MiddleButton) {
+        prevPan_ = mapToScene(evt->pos());
+        setCursor(Qt::ClosedHandCursor);
+    }
+}
+
+void Window::mouseReleaseEvent(QMouseEvent* evt)
+{
+    if (evt->buttons() & Qt::MiddleButton) {
+        setCursor(Qt::ArrowCursor);
+    }
+}
+
 void Window::mouseMoveEvent(QMouseEvent* evt)
 {
-    QPoint location = mapToScene(evt->pos()).toPoint();
+    QPoint draw_location = (mapToScene(evt->pos()) + rootItem_->pos()).toPoint();
 
     if (evt->buttons() & Qt::LeftButton) {
         for (int j=-paintSize_; j<=paintSize_; ++j)
             for (int i=-paintSize_; i<=paintSize_; ++i)
-                overlayImage_->setPixel(location+QPoint(i,j), 0xff000000);
+                overlayImage_->setPixel(draw_location+QPoint(i,j), 0xff000000);
         overlayItem_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    } else if (evt->buttons() & Qt::RightButton) {
+        for (int j=-paintSize_; j<=paintSize_; ++j)
+            for (int i=-paintSize_; i<=paintSize_; ++i)
+                overlayImage_->setPixel(draw_location+QPoint(i,j), 0x00000000);
+        overlayItem_->setPixmap(QPixmap::fromImage(*overlayImage_));
+    } else if (evt->buttons() & Qt::MiddleButton) {
+        auto pan_to = mapToScene(evt->pos());
+        QPointF dp = pan_to - prevPan_;
+        qDebug() << dp;
+        rootItem_->moveBy(dp.x(), dp.y());
+        prevPan_ = pan_to;
     }
 
-    brushItem_->setPos(location - QPoint(paintSize_, paintSize_));
+    brushItem_->setPos(draw_location - QPoint(paintSize_, paintSize_));
 }
 
 void Window::keyReleaseEvent(QKeyEvent* evt)
