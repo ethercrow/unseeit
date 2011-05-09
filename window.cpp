@@ -110,9 +110,10 @@ void Window::mouseMoveEvent(QMouseEvent* evt)
         QPointF dp = pan_to - prevPan_;
         rootItem_->moveBy(dp.x(), dp.y());
         prevPan_ = pan_to;
+        return;
     }
 
-    brushItem_->setPos(mapToScene(evt->pos()) - QPoint(paintSize_, paintSize_));
+    brushItem_->setPos(draw_location - QPoint(paintSize_, paintSize_));
 }
 
 void Window::keyReleaseEvent(QKeyEvent* evt)
