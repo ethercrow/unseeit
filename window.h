@@ -1,12 +1,14 @@
 #ifndef UNSEEIT_WINDOW_H
 #define UNSEEIT_WINDOW_H
 
-#include <QWidget>
+#include <QGraphicsView>
 
-#include <QLabel>
 #include <QPixmap>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsView>
+#include <QGraphicsScene>
 
-class Window: public QWidget
+class Window: public QGraphicsView
 {
     Q_OBJECT
 
@@ -22,20 +24,22 @@ protected:
     virtual void wheelEvent(QWheelEvent*);
 
 private:
-    void updateBrush();
+    QGraphicsScene* scene_;
 
-    QLabel* imageLabel_;
-    QLabel* overlayLabel_;
-    QLabel* resultLabel_;
-    QLabel* offsetMapLabel_;
-    QLabel* scoreMapLabel_;
+    QGraphicsPixmapItem* imageItem_;
+    QGraphicsPixmapItem* overlayItem_;
+    QGraphicsPixmapItem* resultItem_;
+    QGraphicsPixmapItem* offsetMapItem_;
+    QGraphicsPixmapItem* scoreMapItem_;
 
-    QLabel* brushLabel_;
+    QGraphicsPixmapItem* brushItem_;
 
     QImage* pictureImage_;
     QImage* overlayImage_;
 
     int paintSize_;
+
+    void updateBrush();
 };
 
 #endif
