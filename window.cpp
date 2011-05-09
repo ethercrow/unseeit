@@ -31,7 +31,7 @@ Window::Window(QWidget* parent):QGraphicsView(parent),
     offsetMapItem_ = new QGraphicsPixmapItem(rootItem_);
     scoreMapItem_  = new QGraphicsPixmapItem(rootItem_);
 
-    brushItem_ = new QGraphicsPixmapItem;
+    brushItem_ = new QGraphicsPixmapItem(overlayItem_);
 
     imageItem_->setAcceptHoverEvents(true);
     overlayItem_->setAcceptHoverEvents(true);
@@ -88,14 +88,12 @@ void Window::mousePressEvent(QMouseEvent* evt)
 
 void Window::mouseReleaseEvent(QMouseEvent* evt)
 {
-    if (evt->buttons() & Qt::MiddleButton) {
-        setCursor(Qt::ArrowCursor);
-    }
+    setCursor(Qt::ArrowCursor);
 }
 
 void Window::mouseMoveEvent(QMouseEvent* evt)
 {
-    QPoint draw_location = (mapToScene(evt->pos()) + rootItem_->pos()).toPoint();
+    QPoint draw_location = (mapToScene(evt->pos()) - rootItem_->pos()).toPoint();
 
     if (evt->buttons() & Qt::LeftButton) {
         for (int j=-paintSize_; j<=paintSize_; ++j)
@@ -110,12 +108,11 @@ void Window::mouseMoveEvent(QMouseEvent* evt)
     } else if (evt->buttons() & Qt::MiddleButton) {
         auto pan_to = mapToScene(evt->pos());
         QPointF dp = pan_to - prevPan_;
-        qDebug() << dp;
         rootItem_->moveBy(dp.x(), dp.y());
         prevPan_ = pan_to;
     }
 
-    brushItem_->setPos(draw_location - QPoint(paintSize_, paintSize_));
+    brushItem_->setPos(mapToScene(evt->pos()) - QPoint(paintSize_, paintSize_));
 }
 
 void Window::keyReleaseEvent(QKeyEvent* evt)
