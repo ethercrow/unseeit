@@ -1,5 +1,6 @@
 #include "window.h"
 
+#include <QApplication>
 #include <QDebug>
 #include <QString>
 #include <QPainter>
@@ -143,6 +144,10 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
             if (paintSize_ > MIN_PAINT_SIZE)
                 --paintSize_;
             updateBrush();
+            break;
+        case Qt::Key_Q:
+            if (evt->modifiers() & Qt::ControlModifier)
+                qApp->exit(0);
             break;
     }
 }
