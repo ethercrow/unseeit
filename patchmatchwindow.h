@@ -23,7 +23,7 @@ protected:
 
 private:
     void launch();
-    QImage applyOffsets(const COWMatrix<QPoint>& offsetMap);
+    QImage applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap);
 
     QImage* dstImage_;
     QImage* srcImage_;
