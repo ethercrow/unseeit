@@ -134,56 +134,6 @@ COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
     return offsetMap_;
 }
 
-QImage Resynthesizer::inpaint(const QImage& inputTexture,
-                              const QImage& outputMap)
-{
-    TRACE_ME
-
-    realMap_ = QImage(outputMap.size(), QImage::Format_Mono);
-    realMap_.fill(1);
-    for (int j=0; j<outputMap.height(); ++j)
-        for (int i=0; i<outputMap.width(); ++i)
-            if (outputMap.pixel(i, j))
-                realMap_.setPixel(i, j, 0);
-    for (int pass=0; pass<=R; ++pass)
-        realMap_ = grow_selection(realMap_);
-
-    SimilarityMapper sm;
-
-    inputTexture_ = &inputTexture;
-    outputTexture_ = inputTexture;
-
-    offsetMap_ = COWMatrix<QPoint>(inputTexture.size());
-    // generate initial offsetmap
-    offsetMap_.fill(QPoint(0, 0));
-
-    // fill offsetmap with random offsets for unknows points
-    RandomOffsetGenerator rog(realMap_, R);
-    confidenceMap_ = QVector<double>(realMap_.width()*realMap_.height(), 1.0);
-    for (int j=0; j<outputMap.height(); ++j)
-        for (int i=0; i<outputMap.width(); ++i)
-            if (!realMap_.pixelIndex(i, j)) {
-                offsetMap_.set(i, j, rog(i, j));
-                confidenceMap_[j*outputMap.width()+i] = 1e-10;
-            }
-
-    mergePatches(false);
-
-    sm.init(inputTexture, outputTexture_, realMap_, realMap_);
-
-    for (int pass=0; pass<PASS_COUNT; ++pass) {
-        std::cout << "." << std::flush;
-        // update offsetMap_
-        offsetMap_ = sm.iterate(outputTexture_);
-        scoreMap_ = sm.scoreMap();
-
-        mergePatches(true);
-    }
-    std::cout << std::endl;
-
-    return outputTexture_;
-}
-
 void Resynthesizer::mergePatches(bool weighted)
 {
     QRect bounds = outputTexture_.rect();

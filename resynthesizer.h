@@ -11,7 +11,6 @@ class Resynthesizer
 {
 
 public:
-    QImage inpaint(const QImage& inputTexture, const QImage& outputMap);
     COWMatrix<QPoint> buildOffsetMap(const QImage& inputTexture,
                           const QImage& outputMap,
                           const COWMatrix<QPoint>& hint);
