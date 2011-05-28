@@ -14,10 +14,11 @@ public:
     COWMatrix<QPoint> iterate(const QImage& dst);
 
     const COWMatrix<int>* scoreMap() const { return &scoreMap_; };
-    const QVector<double>* reliabilityMap() const { return &reliabilityMap_; };
+    const COWMatrix<qreal> reliabilityMap() const { return reliabilityMap_; };
     const QVector<qreal> confidenceMap() const;
 
     double meanScore() const { return meanScore_; }
+    int maxScore() const { return maxScore_; }
 
 private:
     bool updateSource(QPoint p, QPoint* current_offset,
@@ -27,7 +28,7 @@ private:
     COWMatrix<int> scoreMap_;
 
     // reliability = exp(-score/SIGMA2);
-    QVector<qreal> reliabilityMap_;
+    COWMatrix<qreal> reliabilityMap_;
 
     COWMatrix<QPoint> offsetMap_;
 
@@ -41,6 +42,7 @@ private:
     QImage dstMask_;
 
     double meanScore_;
+    int maxScore_;
 };
 
 #endif

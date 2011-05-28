@@ -48,5 +48,6 @@ QImage downscale_mask(const QImage mask, const QSize dstSize);
 COWMatrix<QPoint> resize_offset_map(const COWMatrix<QPoint> src, const QSize dstSize);
 
 QImage visualizeOffsetMap(const COWMatrix<QPoint>& offsetMap);
+QImage visualizeReliabilityMap(const COWMatrix<qreal>& relMap);
 
 #endif

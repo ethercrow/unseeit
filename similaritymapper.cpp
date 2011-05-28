@@ -10,7 +10,7 @@
 
 const int R = 4;
 const int PASS_COUNT = 12;
-const double SIGMA2 = 200.f;
+const double SIGMA2 = 20.f;
 
 void SimilarityMapper::init(const QImage& src, const QImage& dst)
 {
@@ -36,7 +36,7 @@ void SimilarityMapper::init(const QImage& src,
 
     scoreMap_ = COWMatrix<int>(dst.size());
     scoreMap_.fill(0);
-    reliabilityMap_ = QVector<qreal>(scoreMap_.width()*scoreMap_.height(), 1.0);
+    reliabilityMap_ = COWMatrix<qreal>(scoreMap_.size(), 1.0);
 
     // fill offsetmap with random offsets for unknows points
     offsetMap_.fill(QPoint(0, 0));
@@ -46,7 +46,7 @@ void SimilarityMapper::init(const QImage& src,
             if (!dstMask.pixelIndex(i, j)) {
                 offsetMap_.set(i, j, rog(i, j));
                 scoreMap_.set(i, j, INT_MAX);
-                reliabilityMap_[j*dst_.width()+i] = 0.0;
+                reliabilityMap_.set(i, j, 0.0);
             }
 
     // create list of unknown points
@@ -130,20 +130,20 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 
 void SimilarityMapper::report_max_score()
 {
-    int max_score = 0;
+    maxScore_ = 0;
     int min_score = INT_MAX;
     meanScore_ = 0;
 
     foreach(QPoint p, pointsToFill_) {
         int score = scoreMap_.get(p);
-        max_score = qMax(max_score, score);
+        maxScore_ = qMax(maxScore_, score);
         min_score = qMin(min_score, score);
         meanScore_ += score;
     }
 
     meanScore_ /= pointsToFill_.size();
 
-    qDebug() << "score : max =" << max_score
+    qDebug() << "score : max =" << maxScore_
         << "mean =" << meanScore_
         << "min =" << min_score;
 }
@@ -177,7 +177,7 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
     double score = 0;
     double weight_sum = 0;
 
-    double* weight_ptr = &reliabilityMap_[(p.y()-R)*dw + (p.x()-R)];
+    double* weight_ptr = reliabilityMap_.ptrAt(p-QPoint(R,R));//[(p.y()-R)*dw + (p.x()-R)];
     QRgb* ns_pixel_ptr = reinterpret_cast<QRgb*>(src_.bits()) + (s.y()-R)*sw + (s.x()-R);
     QRgb* np_pixel_ptr = reinterpret_cast<QRgb*>(dst_.bits()) + (p.y()-R)*dw + (p.x()-R);
     for (int j=-R; j<=R; ++j) {
@@ -185,7 +185,7 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
             quint8* ns_rgb = reinterpret_cast<quint8*>(ns_pixel_ptr);
             quint8* np_rgb = reinterpret_cast<quint8*>(np_pixel_ptr);
 
-            score += ssd4(ns_rgb, np_rgb)*(*weight_ptr);
+            score += ssd4(ns_rgb, np_rgb)*(*weight_ptr);// + 255*255*(1.0-*weight_ptr);
             weight_sum += *weight_ptr;
 
             ++weight_ptr;
@@ -204,7 +204,7 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
 
     *best_score = score;
     scoreMap_.set(p, qCeil(score));
-    reliabilityMap_[p.y()*dst_.width() + p.x()] = qExp(-score/SIGMA2);
+    reliabilityMap_.set(p, qExp(-score/SIGMA2));//[p.y()*dst_.width() + p.x()] = qExp(-score/SIGMA2);
     *best_offset = candidate_offset;
 
     return true;

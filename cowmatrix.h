@@ -11,11 +11,13 @@ class COWMatrix
 public:
     COWMatrix(): w_(0), h_(0) {}
 
-    COWMatrix(int w, int h): w_(w), h_(h), data_(w*h)
+    COWMatrix(int w, int h, const T& value = T()):
+        w_(w), h_(h), data_(w*h, value)
     {
     }
 
-    COWMatrix(const QSize& sz): w_(sz.width()), h_(sz.height()), data_(w_*h_)
+    COWMatrix(const QSize& sz, const T& value = T()):
+        w_(sz.width()), h_(sz.height()), data_(w_*h_, value)
     {
     }
 

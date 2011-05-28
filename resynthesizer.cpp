@@ -15,7 +15,7 @@
 
 const int R = 4;
 const double SIGMA2 = 20.f;
-const int PASS_COUNT = 12;
+const int PASS_COUNT = 50;
 const int LOD_MAX = 3;
 
 namespace {
@@ -114,20 +114,25 @@ COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
     sm.init(inputTexture, outputTexture_, realMap_, realMap_);
 
     double prev_mean_score = 4.f*256*256;
+    int prev_max_score = INT_MAX;
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         std::cout << "." << std::flush;
         // update offsetMap_
         offsetMap_ = sm.iterate(outputTexture_);
 
         scoreMap_ = sm.scoreMap();
+        reliabilityMap_ = sm.reliabilityMap();
         mergePatches(true);
 
         double mean_score = sm.meanScore();
-        if (mean_score > prev_mean_score*0.995 && mean_score <= prev_mean_score) {
+        int max_score = sm.maxScore();
+        if (mean_score > prev_mean_score*0.995 && mean_score <= prev_mean_score &&
+            max_score > prev_max_score*0.995 && max_score <= prev_max_score) {
             // local minimum sort of found
             break;
         }
         prev_mean_score = mean_score;
+        prev_max_score = max_score;
     }
     std::cout << std::endl;
 
@@ -140,19 +145,7 @@ void Resynthesizer::mergePatches(bool weighted)
     int width  = offsetMap_.width();
     int height = offsetMap_.height();
 
-    QVector<qreal> weightMap(height*width, 1.0);
     QVector<qreal> new_confidence_map(confidenceMap_);
-
-    if (weighted)
-        for (int j=0; j<height; ++j)
-            for (int i=0; i<width; ++i) {
-                QPoint p(i, j);
-                if (!realMap_.pixelIndex(i, j)) {
-                    int score = scoreMap_->get(p);
-                    qreal reliability = qExp(-score/SIGMA2);
-                    weightMap[j*width+i] = reliability;
-                }
-            }
 
     for (int j=0; j<height; ++j)
         for (int i=0; i<width; ++i)
@@ -175,7 +168,7 @@ void Resynthesizer::mergePatches(bool weighted)
 
                         int idx = (near_p).y()*width + (near_p).x();
                         qreal weight = (weighted)
-                                            ?(weightMap[idx]*confidenceMap_[idx])
+                                            ?(reliabilityMap_.get(near_p)*confidenceMap_[idx])
                                             :1.0;
 
                         new_confidence += confidenceMap_[idx]*weight;
@@ -195,10 +188,5 @@ void Resynthesizer::mergePatches(bool weighted)
                 new_confidence_map[p.y()*width + p.x()] = new_confidence/weight_sum;
             }
     confidenceMap_ = new_confidence_map;
-}
-
-COWMatrix<QPoint> Resynthesizer::offsetMap()
-{
-    return offsetMap_;
 }
 

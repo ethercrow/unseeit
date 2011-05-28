@@ -16,10 +16,10 @@ public:
                           const COWMatrix<QPoint>& hint);
     QImage inpaintHier(const QImage& inputTexture, const QImage& outputMap);
 
-    COWMatrix<QPoint> offsetMap();
+    COWMatrix<QPoint> offsetMap() { return offsetMap_; };
+    COWMatrix<qreal> reliabilityMap() { return reliabilityMap_; };
 
 private:
-    int coherence(QPoint p1, QPoint p2, int R);
     void mergePatches(bool weighted);
 
     // TODO: stop using QVector and QImage as matrices ffs
@@ -32,6 +32,7 @@ private:
     COWMatrix<QPoint> offsetMap_;
 
     QImage realMap_;
+    COWMatrix<qreal> reliabilityMap_;
 };
 
 #endif
