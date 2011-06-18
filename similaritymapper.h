@@ -11,8 +11,10 @@ enum SimilarityMapperMode
     SMModeMasked
 };
 
-class SimilarityMapper
+class SimilarityMapper: public QObject
 {
+    Q_OBJECT
+
 public:
     // src, dst - argb32, src_mask - mono
     void init(const QImage& src, const QImage& dst, const QImage& srcMask, const QImage& dstMask);
@@ -24,6 +26,9 @@ public:
     const QVector<qreal> confidenceMap() const;
 
     double meanScore() const { return meanScore_; }
+
+signals:
+    void iterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>);
 
 private:
     bool updateSource(QPoint p, QPoint* current_offset,

@@ -1,6 +1,7 @@
 #include "patchmatchwindow.h"
 
 #include <QKeyEvent>
+#include <QtConcurrentRun>
 
 #include "similaritymapper.h"
 #include "utils.h"
@@ -9,6 +10,7 @@
 
 const double SIGMA2 = 20.f;
 const int R = 4;
+
 
 PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
     srcImage_(NULL), dstImage_(NULL)
@@ -56,21 +58,43 @@ void PatchMatchWindow::keyReleaseEvent(QKeyEvent* evt)
     }
 }
 
+void PatchMatchWindow::onIterationComplete(COWMatrix<QPoint> offsetMap,
+                                           COWMatrix<qreal> reliabilityMap)
+{
+    TRACE_ME
+
+    QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
+    offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+
+    QImage resultImage = applyOffsetsUnweighted(offsetMap);
+    resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
+
+    update();
+}
+
 void PatchMatchWindow::launch()
 {
     TRACE_ME
 
-    SimilarityMapper sm;
+    qRegisterMetaType<COWMatrix<QPoint>>("COWMatrix<QPoint>");
+    qRegisterMetaType<COWMatrix<qreal>>("COWMatrix<qreal>");
 
-    sm.init(*srcImage_, *dstImage_);
-    auto offsetMap = sm.iterate(*dstImage_);
-    QImage offsetMapVisual = visualizeOffsetMap(offsetMap); 
-    offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+    sm_ = new SimilarityMapper;
 
-    //QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
-    QImage resultImage = applyOffsetsUnweighted(offsetMap);
-    resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
-    update();
+    connect(sm_, SIGNAL(iterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>)),
+            this, SLOT(onIterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>)));
+
+    sm_->init(*srcImage_, *dstImage_);
+    QFuture<COWMatrix<QPoint>> offsetMapFuture = QtConcurrent::run(sm_, &SimilarityMapper::iterate, *dstImage_);
+
+    // auto offsetMap = offsetMapFuture.result();
+    // QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
+    // offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+
+    // //QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
+    // QImage resultImage = applyOffsetsUnweighted(offsetMap);
+    // resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
+    // update();
 }
 
 QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap)

@@ -146,6 +146,8 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
             std::reverse(pointsToFill_.begin(), pointsToFill_.end());
             std::reverse(reversePointsToFill_.begin(), reversePointsToFill_.end());
         }
+
+        emit iterationComplete(offsetMap_, reliabilityMap_);
     }
 
     report_max_score();

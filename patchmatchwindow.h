@@ -7,6 +7,8 @@
 
 #include "cowmatrix.h"
 
+class SimilarityMapper;
+
 class PatchMatchWindow: public QWidget
 {
     Q_OBJECT
@@ -21,6 +23,10 @@ public:
 protected:
     void keyReleaseEvent(QKeyEvent* evt);
 
+private slots:
+    void onIterationComplete(COWMatrix<QPoint> offsetMap,
+                             COWMatrix<qreal> reliabilityMap);
+
 private:
     void launch();
     QImage applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap);
@@ -34,6 +40,8 @@ private:
     QLabel* offsetLabel_;
     QLabel* errorLabel_;
     QLabel* resultLabel_;
+
+    SimilarityMapper* sm_;
 };
 
 #endif /* end of include guard: PATCHMATCHWINDOW_H_NKL1CREY */
