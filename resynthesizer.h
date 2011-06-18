@@ -16,7 +16,8 @@ public:
                           const COWMatrix<QPoint>& hint);
     QImage inpaintHier(const QImage& inputTexture, const QImage& outputMap);
 
-    COWMatrix<QPoint> offsetMap();
+    COWMatrix<QPoint> offsetMap() { return offsetMap_; }
+    COWMatrix<qreal> reliabilityMap() { return reliabilityMap_; }
 
 private:
     int coherence(QPoint p1, QPoint p2, int R);
@@ -27,9 +28,10 @@ private:
 
     QVector<qreal> confidenceMap_;
     const QImage* inputTexture_;
-    const COWMatrix<int>* scoreMap_;
     QImage outputTexture_;
+
     COWMatrix<QPoint> offsetMap_;
+    COWMatrix<qreal> reliabilityMap_;
 
     QImage realMap_;
 };

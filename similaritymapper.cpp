@@ -10,7 +10,7 @@
 
 const int R = 4;
 const int PASS_COUNT = 12;
-const double SIGMA2 = 20.f;
+const double SIGMA2 = (2*R+1)*(2*R+1)*16.f;
 
 void SimilarityMapper::init(const QImage& src, const QImage& dst)
 {
@@ -51,7 +51,7 @@ void SimilarityMapper::init(const QImage& src,
 {
     TRACE_ME
 
-    mode_ = SMModeSimple;
+    mode_ = SMModeMasked;
 
     // offsetmap has the same dimensions as dst
     offsetMap_ = COWMatrix<QPoint>(dst.size());
@@ -90,8 +90,6 @@ void SimilarityMapper::init(const QImage& src,
 
 COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 {
-    TRACE_ME
-
     dst_ = dst;
     int init_search_range = qMax(src_.width(), src_.height());
 

@@ -29,7 +29,7 @@ private slots:
 
 private:
     void launch();
-    QImage applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap);
+    QImage applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<qreal>& relMap);
     QImage applyOffsetsUnweighted(const COWMatrix<QPoint>& offsetMap);
 
     QImage* dstImage_;

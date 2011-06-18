@@ -8,9 +8,7 @@
 
 #include <qmath.h>
 
-const double SIGMA2 = 20.f;
 const int R = 4;
-
 
 PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
     srcImage_(NULL), dstImage_(NULL)
@@ -66,7 +64,7 @@ void PatchMatchWindow::onIterationComplete(COWMatrix<QPoint> offsetMap,
     QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
     offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
 
-    QImage resultImage = applyOffsetsUnweighted(offsetMap);
+    QImage resultImage = applyOffsetsWeighted(offsetMap, reliabilityMap);
     resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
 
     QImage errorImage = visualizeReliabilityMap(reliabilityMap);
@@ -100,23 +98,13 @@ void PatchMatchWindow::launch()
     // update();
 }
 
-QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap)
+QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<qreal>& relMap)
 {
     QImage result{offsetMap.size(), QImage::Format_RGB32};
 
     QRect bounds = result.rect();
     int width  = offsetMap.width();
     int height = offsetMap.height();
-
-    QVector<qreal> weightMap(height*width, 1.0);
-
-    for (int j=0; j<height; ++j)
-        for (int i=0; i<width; ++i) {
-            QPoint p(i, j);
-            int score = scoreMap->get(p);
-            qreal reliability = qExp(-score/SIGMA2);
-            weightMap[j*width+i] = reliability;
-        }
 
     for (int j=0; j<height; ++j)
         for (int i=0; i<width; ++i) {
@@ -136,8 +124,7 @@ QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap
 
                     QColor c(srcImage_->pixel(opinion_point));
 
-                    int idx = (near_p).y()*width + (near_p).x();
-                    qreal weight = (weightMap[idx]);
+                    qreal weight = relMap.get(near_p);
 
                     new_confidence += weight;
 
@@ -153,7 +140,6 @@ QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap
             b /= weight_sum;
 
             result.setPixel(p, QColor(r, g, b).rgb());
-
         }
 
     return result;

@@ -129,6 +129,7 @@ void Window::keyReleaseEvent(QKeyEvent* evt)
             resultItem_->setPixmap(QPixmap::fromImage(result));
 
             offsetMapItem_->setPixmap(QPixmap::fromImage(visualizeOffsetMap(r.offsetMap())));
+            scoreMapItem_->setPixmap(QPixmap::fromImage(visualizeReliabilityMap(r.reliabilityMap())));
             break;
         }
         case Qt::Key_Space:
