@@ -10,7 +10,9 @@
 
 const int R = 4;
 const int PASS_COUNT = 12;
-const double SIGMA2 = (2*R+1)*(2*R+1)*16.f;
+
+// this value can be varied from "omg blurry" to "wtf is that?!"
+const double SIGMA2 = (2*R+1)*(2*R+1)*0.2f;
 
 void SimilarityMapper::init(const QImage& src, const QImage& dst)
 {

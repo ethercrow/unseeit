@@ -64,7 +64,8 @@ void PatchMatchWindow::onIterationComplete(COWMatrix<QPoint> offsetMap,
     QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
     offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
 
-    QImage resultImage = applyOffsetsWeighted(offsetMap, reliabilityMap);
+    //QImage resultImage = applyOffsetsWeighted(offsetMap, reliabilityMap);
+    QImage resultImage = applyOffsetsUnweighted(offsetMap);
     resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
 
     QImage errorImage = visualizeReliabilityMap(reliabilityMap);
