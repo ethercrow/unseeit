@@ -25,7 +25,7 @@ PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
     offsetLabel_->setGeometry(1000, 0, 500, 500);
 
     errorLabel_ = new QLabel(this);
-    errorLabel_->setGeometry(1000, 500, 500, 500);
+    errorLabel_->setGeometry(500, 500, 500, 500);
 
     resultLabel_ = new QLabel(this);
     resultLabel_->setGeometry(1000, 500, 500, 500);
@@ -68,6 +68,9 @@ void PatchMatchWindow::onIterationComplete(COWMatrix<QPoint> offsetMap,
 
     QImage resultImage = applyOffsetsUnweighted(offsetMap);
     resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
+
+    QImage errorImage = visualizeReliabilityMap(reliabilityMap);
+    errorLabel_->setPixmap(QPixmap::fromImage(errorImage));
 
     update();
 }

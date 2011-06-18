@@ -82,3 +82,14 @@ QImage visualizeOffsetMap(const COWMatrix<QPoint>& offsetMap)
     return result;
 }
 
+QImage visualizeReliabilityMap(const COWMatrix<qreal>& relMap)
+{
+    QImage result(relMap.size(), QImage::Format_RGB32);
+
+    for (int j=0; j<relMap.height(); ++j)
+        for (int i=0; i<relMap.width(); ++i) {
+            result.setPixel(i, j, QColor(255*(1.0-qPow(relMap.get(i, j), 1)), 0, 0).rgb());
+        }
+
+    return result;
+}

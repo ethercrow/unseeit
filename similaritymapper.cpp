@@ -35,8 +35,8 @@ void SimilarityMapper::init(const QImage& src, const QImage& dst)
             offsetMap_.set(i, j, rog(i, j));
 
     // create list of unknown points
-    for (int j=0; j<dst.height(); ++j) {
-        for (int i=0, i_end = dst.width(); i<i_end; ++i)
+    for (int j=R; j<dst.height()-R; ++j) {
+        for (int i=R, i_end = dst.width()-R; i<i_end; ++i)
             pointsToFill_ << QPoint(i, j);
 
         for (int i=dst.width()-1; i >= 0; --i)
@@ -75,8 +75,8 @@ void SimilarityMapper::init(const QImage& src,
             }
 
     // create list of unknown points
-    for (int j=0; j<dst.height(); ++j) {
-        for (int i=0, i_end = dst.width(); i<i_end; ++i)
+    for (int j=R; j<dst.height()-R; ++j) {
+        for (int i=R, i_end = dst.width()-R; i<i_end; ++i)
             if (!dstMask.pixelIndex(i, j))
                 pointsToFill_ << QPoint(i, j);
 
@@ -90,14 +90,16 @@ void SimilarityMapper::init(const QImage& src,
 
 COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 {
+    TRACE_ME
+
     dst_ = dst;
     int init_search_range = qMax(src_.width(), src_.height());
 
     QVector<QPolygon> neighbour_offsets_passes(4);
-    neighbour_offsets_passes[0] << QPoint{0, -1} << QPoint{-1, 0};
-    neighbour_offsets_passes[1] << QPoint{0,  1} << QPoint{-1, 0};
-    neighbour_offsets_passes[2] << QPoint{0,  1} << QPoint{ 1, 0};
-    neighbour_offsets_passes[3] << QPoint{0, -1} << QPoint{ 1, 0};
+    neighbour_offsets_passes[0] << QPoint(0, -1) << QPoint(-1, 0);
+    neighbour_offsets_passes[1] << QPoint(0,  1) << QPoint(-1, 0);
+    neighbour_offsets_passes[2] << QPoint(0,  1) << QPoint( 1, 0);
+    neighbour_offsets_passes[3] << QPoint(0, -1) << QPoint( 1, 0);
 
     for (int pass=0; pass<PASS_COUNT; ++pass) {
         // refine pass
@@ -128,9 +130,9 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
             // propagate good guess
             foreach (QPoint dp, neighbour_offsets) {
                 QPoint pdp = p+dp;
-                if (pdp.x() >= 0 && pdp.y() >= 0 &&
+                if (pdp.x() >= 0 && pdp.y() >= 0 && (SMModeSimple == mode_ || (
                     pdp.x() < dstMask_.width() && pdp.y() < dstMask_.height() &&
-                    !dstMask_.pixelIndex(pdp))
+                    !dstMask_.pixelIndex(pdp))))
                 {
                     // our neighbour is unknown point too
                     // maybe his offset is better than ours
@@ -274,15 +276,15 @@ bool SimilarityMapper::updateSourceSimple(QPoint p, QPoint* best_offset,
 
             score += ssd4(ns_rgb, np_rgb);
 
+            if (*best_score <= score)
+                return false;
+
             ++ns_pixel_ptr;
             ++np_pixel_ptr;
         }
         ns_pixel_ptr += sw - 2*R - 1;
         np_pixel_ptr += dw - 2*R - 1;
     }
-
-    if (*best_score <= score)
-        return false;
 
     *best_score = score;
     scoreMap_.set(p, score);
