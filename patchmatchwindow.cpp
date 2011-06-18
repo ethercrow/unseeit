@@ -181,8 +181,9 @@ QImage PatchMatchWindow::applyOffsetsUnweighted(const COWMatrix<QPoint>& offsetM
             else if (j >= height-R)
                dp.ry() = height-R-1-j;
 
-            result.setPixel(p, srcImage_->pixel(p + offsetMap.get(p)));
-            result.setPixel(p, srcImage_->pixel(p + offsetMap.get(p+dp) - dp));
+            QPoint source = p + offsetMap.get(p+dp);
+
+            result.setPixel(p, srcImage_->pixel(source));
         }
 
     return result;
