@@ -67,7 +67,8 @@ void PatchMatchWindow::launch()
     QImage offsetMapVisual = visualizeOffsetMap(offsetMap); 
     offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
 
-    QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
+    //QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
+    QImage resultImage = applyOffsetsUnweighted(offsetMap);
     resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
     update();
 }
@@ -126,6 +127,38 @@ QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap
 
             result.setPixel(p, QColor(r, g, b).rgb());
 
+        }
+
+    return result;
+}
+
+QImage PatchMatchWindow::applyOffsetsUnweighted(const COWMatrix<QPoint>& offsetMap)
+{
+    QImage result{offsetMap.size(), QImage::Format_RGB32};
+
+    QRect bounds = result.rect();
+    int width  = offsetMap.width();
+    int height = offsetMap.height();
+
+    for (int j=0; j<height; ++j)
+        for (int i=0; i<width; ++i) {
+            QPoint p(i, j);
+
+            // p - provider_for_p, necessary if p is near edge
+            QPoint dp(0, 0);
+
+            if (i<R)
+               dp.rx() = R-i;
+            else if (i >= width-R)
+               dp.rx() = width-R-1-i;
+
+            if (j<R)
+               dp.ry() = R-j;
+            else if (j >= height-R)
+               dp.ry() = height-R-1-j;
+
+            result.setPixel(p, srcImage_->pixel(p + offsetMap.get(p)));
+            result.setPixel(p, srcImage_->pixel(p + offsetMap.get(p+dp) - dp));
         }
 
     return result;

@@ -10,23 +10,48 @@
 
 const int R = 4;
 const int PASS_COUNT = 12;
-const double SIGMA2 = 200.f;
+const double SIGMA2 = 20.f;
 
 void SimilarityMapper::init(const QImage& src, const QImage& dst)
 {
     TRACE_ME
 
+    mode_ = SMModeSimple;
+
+    // offsetmap has the same dimensions as dst
+    offsetMap_ = COWMatrix<QPoint>(dst.size());
+    src_ = src;
     auto srcMask = QImage(src.size(), QImage::Format_Mono);
     srcMask.fill(1);
-    auto dstMask = QImage(dst.size(), QImage::Format_Mono);
-    dstMask.fill(0);
-    init(src, dst, srcMask, dstMask);
+
+    scoreMap_ = COWMatrix<int>(dst.size());
+    scoreMap_.fill(INT_MAX);
+    reliabilityMap_ = COWMatrix<qreal>(scoreMap_.size(), 0.0);
+
+    // fill offsetmap with random offsets for unknows points
+    RandomOffsetGenerator rog(srcMask, R);
+    for (int j=0; j<offsetMap_.height(); ++j)
+        for (int i=0; i<offsetMap_.width(); ++i)
+            offsetMap_.set(i, j, rog(i, j));
+
+    // create list of unknown points
+    for (int j=0; j<dst.height(); ++j) {
+        for (int i=0, i_end = dst.width(); i<i_end; ++i)
+            pointsToFill_ << QPoint(i, j);
+
+        for (int i=dst.width()-1; i >= 0; --i)
+            reversePointsToFill_ << QPoint(i, j);
+    }
+
+    qDebug() << pointsToFill_.size() << "points to map";
 }
 
 void SimilarityMapper::init(const QImage& src,
         const QImage& dst, const QImage& srcMask, const QImage& dstMask)
 {
     TRACE_ME
+
+    mode_ = SMModeSimple;
 
     // offsetmap has the same dimensions as dst
     offsetMap_ = COWMatrix<QPoint>(dst.size());
@@ -36,7 +61,7 @@ void SimilarityMapper::init(const QImage& src,
 
     scoreMap_ = COWMatrix<int>(dst.size());
     scoreMap_.fill(0);
-    reliabilityMap_ = QVector<qreal>(scoreMap_.width()*scoreMap_.height(), 1.0);
+    reliabilityMap_ = COWMatrix<qreal>(scoreMap_.size(), 1.0);
 
     // fill offsetmap with random offsets for unknows points
     offsetMap_.fill(QPoint(0, 0));
@@ -46,7 +71,7 @@ void SimilarityMapper::init(const QImage& src,
             if (!dstMask.pixelIndex(i, j)) {
                 offsetMap_.set(i, j, rog(i, j));
                 scoreMap_.set(i, j, INT_MAX);
-                reliabilityMap_[j*dst_.width()+i] = 0.0;
+                reliabilityMap_.set(i, j, 0.0);
             }
 
     // create list of unknown points
@@ -151,6 +176,15 @@ void SimilarityMapper::report_max_score()
 bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
     QPoint candidate_offset, int* best_score)
 {
+    if (SMModeSimple == mode_)
+        return updateSourceSimple(p, best_offset, candidate_offset, best_score);
+    else
+        return updateSourceMasked(p, best_offset, candidate_offset, best_score);
+}
+
+bool SimilarityMapper::updateSourceMasked(QPoint p, QPoint* best_offset,
+    QPoint candidate_offset, int* best_score)
+{
     QRect bounds(QPoint(0, 0), src_.size());
 
     int dw = dst_.width();
@@ -177,7 +211,7 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
     double score = 0;
     double weight_sum = 0;
 
-    double* weight_ptr = &reliabilityMap_[(p.y()-R)*dw + (p.x()-R)];
+    const qreal* weight_ptr = reliabilityMap_.ptrAt(p-QPoint(R,R));
     QRgb* ns_pixel_ptr = reinterpret_cast<QRgb*>(src_.bits()) + (s.y()-R)*sw + (s.x()-R);
     QRgb* np_pixel_ptr = reinterpret_cast<QRgb*>(dst_.bits()) + (p.y()-R)*dw + (p.x()-R);
     for (int j=-R; j<=R; ++j) {
@@ -204,9 +238,54 @@ bool SimilarityMapper::updateSource(QPoint p, QPoint* best_offset,
 
     *best_score = score;
     scoreMap_.set(p, qCeil(score));
-    reliabilityMap_[p.y()*dst_.width() + p.x()] = qExp(-score/SIGMA2);
+    reliabilityMap_.set(p, qExp(-score/SIGMA2));
     *best_offset = candidate_offset;
 
     return true;
 }
 
+bool SimilarityMapper::updateSourceSimple(QPoint p, QPoint* best_offset,
+    QPoint candidate_offset, int* best_score)
+{
+    int dw = dst_.width();
+    int dh = dst_.height();
+
+    int sw = src_.width();
+    int sh = src_.height();
+
+    // source point
+    QPoint s = p + candidate_offset;
+
+    // fuck the edge cases
+    if (p.x() < R || p.x() >= dw-R || p.y() < R || p.y() >= dh-R ||
+        s.x() < R || s.x() >= sw-R || s.y() < R || s.y() >= sh-R)
+        return false;
+
+    int score = 0;
+
+    QRgb* ns_pixel_ptr = reinterpret_cast<QRgb*>(src_.bits()) + (s.y()-R)*sw + (s.x()-R);
+    QRgb* np_pixel_ptr = reinterpret_cast<QRgb*>(dst_.bits()) + (p.y()-R)*dw + (p.x()-R);
+    for (int j=-R; j<=R; ++j) {
+        for (int i=-R; i<=R; ++i) {
+            quint8* ns_rgb = reinterpret_cast<quint8*>(ns_pixel_ptr);
+            quint8* np_rgb = reinterpret_cast<quint8*>(np_pixel_ptr);
+
+            score += ssd4(ns_rgb, np_rgb);
+
+            ++ns_pixel_ptr;
+            ++np_pixel_ptr;
+        }
+        ns_pixel_ptr += sw - 2*R - 1;
+        np_pixel_ptr += dw - 2*R - 1;
+    }
+
+    if (*best_score <= score)
+        return false;
+
+    *best_score = score;
+    scoreMap_.set(p, score);
+    reliabilityMap_.set(p, qExp(-score/SIGMA2));
+    *best_offset = candidate_offset;
+
+    return true;
+}
