@@ -1,13 +1,13 @@
 #include "patchmatchwindow.h"
 
 #include <QKeyEvent>
+#include <QtConcurrentRun>
 
 #include "similaritymapper.h"
 #include "utils.h"
 
 #include <qmath.h>
 
-const double SIGMA2 = 20.f;
 const int R = 4;
 
 PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
@@ -23,7 +23,7 @@ PatchMatchWindow::PatchMatchWindow(QWidget* parent): QWidget(parent),
     offsetLabel_->setGeometry(1000, 0, 500, 500);
 
     errorLabel_ = new QLabel(this);
-    errorLabel_->setGeometry(1000, 500, 500, 500);
+    errorLabel_->setGeometry(500, 500, 500, 500);
 
     resultLabel_ = new QLabel(this);
     resultLabel_->setGeometry(1000, 500, 500, 500);
@@ -56,39 +56,56 @@ void PatchMatchWindow::keyReleaseEvent(QKeyEvent* evt)
     }
 }
 
+void PatchMatchWindow::onIterationComplete(COWMatrix<QPoint> offsetMap,
+                                           COWMatrix<qreal> reliabilityMap)
+{
+    TRACE_ME
+
+    QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
+    offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+
+    //QImage resultImage = applyOffsetsWeighted(offsetMap, reliabilityMap);
+    QImage resultImage = applyOffsetsUnweighted(offsetMap);
+    resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
+
+    QImage errorImage = visualizeReliabilityMap(reliabilityMap);
+    errorLabel_->setPixmap(QPixmap::fromImage(errorImage));
+
+    update();
+}
+
 void PatchMatchWindow::launch()
 {
     TRACE_ME
 
-    SimilarityMapper sm;
+    qRegisterMetaType<COWMatrix<QPoint>>("COWMatrix<QPoint>");
+    qRegisterMetaType<COWMatrix<qreal>>("COWMatrix<qreal>");
 
-    sm.init(*srcImage_, *dstImage_);
-    auto offsetMap = sm.iterate(*dstImage_);
-    QImage offsetMapVisual = visualizeOffsetMap(offsetMap); 
-    offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+    sm_ = new SimilarityMapper;
 
-    QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
-    resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
-    update();
+    connect(sm_, SIGNAL(iterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>)),
+            this, SLOT(onIterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>)));
+
+    sm_->init(*srcImage_, *dstImage_);
+    QFuture<COWMatrix<QPoint>> offsetMapFuture = QtConcurrent::run(sm_, &SimilarityMapper::iterate, *dstImage_);
+
+    // auto offsetMap = offsetMapFuture.result();
+    // QImage offsetMapVisual = visualizeOffsetMap(offsetMap);
+    // offsetLabel_->setPixmap(QPixmap::fromImage(offsetMapVisual));
+
+    // //QImage resultImage = applyOffsetsWeighted(offsetMap, sm.scoreMap());
+    // QImage resultImage = applyOffsetsUnweighted(offsetMap);
+    // resultLabel_->setPixmap(QPixmap::fromImage(resultImage));
+    // update();
 }
 
-QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<int>* scoreMap)
+QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap, const COWMatrix<qreal>& relMap)
 {
     QImage result{offsetMap.size(), QImage::Format_RGB32};
 
     QRect bounds = result.rect();
     int width  = offsetMap.width();
     int height = offsetMap.height();
-
-    QVector<qreal> weightMap(height*width, 1.0);
-
-    for (int j=0; j<height; ++j)
-        for (int i=0; i<width; ++i) {
-            QPoint p(i, j);
-            int score = scoreMap->get(p);
-            qreal reliability = qExp(-score/SIGMA2);
-            weightMap[j*width+i] = reliability;
-        }
 
     for (int j=0; j<height; ++j)
         for (int i=0; i<width; ++i) {
@@ -108,8 +125,7 @@ QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap
 
                     QColor c(srcImage_->pixel(opinion_point));
 
-                    int idx = (near_p).y()*width + (near_p).x();
-                    qreal weight = (weightMap[idx]);
+                    qreal weight = relMap.get(near_p);
 
                     new_confidence += weight;
 
@@ -125,7 +141,39 @@ QImage PatchMatchWindow::applyOffsetsWeighted(const COWMatrix<QPoint>& offsetMap
             b /= weight_sum;
 
             result.setPixel(p, QColor(r, g, b).rgb());
+        }
 
+    return result;
+}
+
+QImage PatchMatchWindow::applyOffsetsUnweighted(const COWMatrix<QPoint>& offsetMap)
+{
+    QImage result{offsetMap.size(), QImage::Format_RGB32};
+
+    QRect bounds = result.rect();
+    int width  = offsetMap.width();
+    int height = offsetMap.height();
+
+    for (int j=0; j<height; ++j)
+        for (int i=0; i<width; ++i) {
+            QPoint p(i, j);
+
+            // p - provider_for_p, necessary if p is near edge
+            QPoint dp(0, 0);
+
+            if (i<R)
+               dp.rx() = R-i;
+            else if (i >= width-R)
+               dp.rx() = width-R-1-i;
+
+            if (j<R)
+               dp.ry() = R-j;
+            else if (j >= height-R)
+               dp.ry() = height-R-1-j;
+
+            QPoint source = p + offsetMap.get(p+dp);
+
+            result.setPixel(p, srcImage_->pixel(source));
         }
 
     return result;

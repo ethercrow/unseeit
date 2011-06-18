@@ -14,7 +14,6 @@
 #include "utils.h"
 
 const int R = 4;
-const double SIGMA2 = 20.f;
 const int PASS_COUNT = 50;
 const int LOD_MAX = 3;
 
@@ -116,11 +115,9 @@ COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
     double prev_mean_score = 4.f*256*256;
     int prev_max_score = INT_MAX;
     for (int pass=0; pass<PASS_COUNT; ++pass) {
-        std::cout << "." << std::flush;
         // update offsetMap_
         offsetMap_ = sm.iterate(outputTexture_);
 
-        scoreMap_ = sm.scoreMap();
         reliabilityMap_ = sm.reliabilityMap();
         mergePatches(true);
 
@@ -134,7 +131,6 @@ COWMatrix<QPoint> Resynthesizer::buildOffsetMap(const QImage& inputTexture,
         prev_mean_score = mean_score;
         prev_max_score = max_score;
     }
-    std::cout << std::endl;
 
     return offsetMap_;
 }

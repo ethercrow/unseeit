@@ -5,8 +5,16 @@
 #include <QPolygon>
 #include "cowmatrix.h"
 
-class SimilarityMapper
+enum SimilarityMapperMode
 {
+    SMModeSimple,
+    SMModeMasked
+};
+
+class SimilarityMapper: public QObject
+{
+    Q_OBJECT
+
 public:
     // src, dst - argb32, src_mask - mono
     void init(const QImage& src, const QImage& dst, const QImage& srcMask, const QImage& dstMask);
@@ -14,14 +22,21 @@ public:
     COWMatrix<QPoint> iterate(const QImage& dst);
 
     const COWMatrix<int>* scoreMap() const { return &scoreMap_; };
-    const COWMatrix<qreal> reliabilityMap() const { return reliabilityMap_; };
+    const COWMatrix<double> reliabilityMap() const { return reliabilityMap_; };
     const QVector<qreal> confidenceMap() const;
 
     double meanScore() const { return meanScore_; }
     int maxScore() const { return maxScore_; }
 
+signals:
+    void iterationComplete(COWMatrix<QPoint>, COWMatrix<qreal>);
+
 private:
     bool updateSource(QPoint p, QPoint* current_offset,
+        QPoint candidate_offset, int* score);
+    bool updateSourceSimple(QPoint p, QPoint* current_offset,
+        QPoint candidate_offset, int* score);
+    bool updateSourceMasked(QPoint p, QPoint* current_offset,
         QPoint candidate_offset, int* score);
     void report_max_score();
 
@@ -43,6 +58,8 @@ private:
 
     double meanScore_;
     int maxScore_;
+
+    SimilarityMapperMode mode_;
 };
 
 #endif
