@@ -112,15 +112,14 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
         const QPolygon& neighbour_offsets = neighbour_offsets_passes[pass%4];
         const QPolygon& points = (pass%2)?reversePointsToFill_:pointsToFill_;
 
+        // random search
         foreach(QPoint p, points) {
             QPoint best_offset = offsetMap_.get(p);
-
             int best_score = scoreMap_.get(p);
 
             if (best_score == 0)
                 continue;
 
-            // random search
             for (int range=init_search_range; range>0; range/=2) {
                 QPoint o(best_offset);
                 o.rx() += qrand()%(2*range) - range;
@@ -128,7 +127,18 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
                 updateSource(p, &best_offset, o, &best_score);
             }
 
-            // propagate good guess
+            // save found offset
+            offsetMap_.set(p, best_offset);
+        }
+
+        // propagate good guess
+        foreach(QPoint p, points) {
+            QPoint best_offset = offsetMap_.get(p);
+            int best_score = scoreMap_.get(p);
+
+            if (best_score == 0)
+                continue;
+
             foreach (QPoint dp, neighbour_offsets) {
                 QPoint pdp = p+dp;
                 if (pdp.x() >= 0 && pdp.y() >= 0 && (SMModeSimple == mode_ || (
@@ -138,7 +148,8 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
                     // our neighbour is unknown point too
                     // maybe his offset is better than ours
                     QPoint neighbours_offset = offsetMap_.get(p+dp);
-                    updateSource(p, &best_offset, neighbours_offset, &best_score);
+                    if (scoreMap_.get(p+dp) - 4*R*SIGMA2 < scoreMap_.get(p))
+                        updateSource(p, &best_offset, neighbours_offset, &best_score);
                 }
             }
 
