@@ -11,6 +11,14 @@ enum SimilarityMapperMode
     SMModeMasked
 };
 
+struct RandomSearchResult
+{
+    QPoint point;
+    QPoint offset;
+    int score;
+};
+
+
 class SimilarityMapper: public QObject
 {
     Q_OBJECT
@@ -33,12 +41,15 @@ signals:
 
 private:
     bool updateSource(QPoint p, QPoint* current_offset,
-        QPoint candidate_offset, int* score);
+        QPoint candidate_offset, int* score) const;
     bool updateSourceSimple(QPoint p, QPoint* current_offset,
-        QPoint candidate_offset, int* score);
+        QPoint candidate_offset, int* score) const;
     bool updateSourceMasked(QPoint p, QPoint* current_offset,
-        QPoint candidate_offset, int* score);
+        QPoint candidate_offset, int* score) const;
     void report_max_score();
+
+    QVector<RandomSearchResult> performRandomSearchForRange(QPolygon points) const;
+    RandomSearchResult randomSearchKernel(QPoint p) const;
 
     COWMatrix<int> scoreMap_;
 
@@ -60,6 +71,8 @@ private:
     int maxScore_;
 
     SimilarityMapperMode mode_;
+
+    int initSearchRange_;
 };
 
 #endif

@@ -26,7 +26,16 @@ public:
         return &data_[j*w_+i];
     }
 
+    const T* ptrAt(int i, int j) const{
+        Q_ASSERT(i>=0 && i<w_ && j>=0 && j<h_);
+        return &data_[j*w_+i];
+    }
+
     T* ptrAt(const QPoint& p) {
+        return ptrAt(p.x(), p.y());
+    }
+
+    const T* ptrAt(const QPoint& p) const {
         return ptrAt(p.x(), p.y());
     }
 
