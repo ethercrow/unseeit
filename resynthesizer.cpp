@@ -176,6 +176,11 @@ void Resynthesizer::mergePatches(bool weighted)
                         weight_sum += weight;
                     }
 
+                if (0.0 == weight_sum) {
+                    qDebug("this is bad");
+                    continue;
+                }
+
                 r /= weight_sum;
                 g /= weight_sum;
                 b /= weight_sum;

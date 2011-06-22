@@ -1,5 +1,6 @@
 #include "similaritymapper.h"
 
+#include <limits>
 #include <algorithm>
 #include <iostream>
 
@@ -15,6 +16,8 @@
 
 const int R = 4;
 const int PASS_COUNT = 12;
+
+const double QREAL_MIN = std::numeric_limits<qreal>::min();
 
 // this value can be varied from "omg blurry" to "wtf is that?!"
 const double SIGMA2 = (2*R+1)*(2*R+1)*0.2f;
@@ -33,7 +36,7 @@ void SimilarityMapper::init(const QImage& src, const QImage& dst)
 
     scoreMap_ = COWMatrix<int>(dst.size());
     scoreMap_.fill(INT_MAX);
-    reliabilityMap_ = COWMatrix<qreal>(scoreMap_.size(), 0.0);
+    reliabilityMap_ = COWMatrix<qreal>(scoreMap_.size(), QREAL_MIN);
 
     // fill offsetmap with random offsets for unknows points
     RandomOffsetGenerator rog(srcMask, R);
@@ -78,7 +81,7 @@ void SimilarityMapper::init(const QImage& src,
             if (!dstMask.pixelIndex(i, j)) {
                 offsetMap_.set(i, j, rog(i, j));
                 scoreMap_.set(i, j, INT_MAX);
-                reliabilityMap_.set(i, j, 0.0);
+                reliabilityMap_.set(i, j, QREAL_MIN);
             }
 
     // create list of unknown points
@@ -174,7 +177,7 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
         foreach(RandomSearchResult rsr, opinions) {
             offsetMap_.set(rsr.point, rsr.offset);
             scoreMap_.set(rsr.point, rsr.score);
-            reliabilityMap_.set(rsr.point, qExp(-rsr.score/SIGMA2));
+            reliabilityMap_.set(rsr.point, std::max(qExp(-rsr.score/SIGMA2), QREAL_MIN));
         }
 
         // propagate good guess
@@ -201,7 +204,7 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 
             // save found offset
             scoreMap_.set(p, best_score);
-            reliabilityMap_.set(p, qExp(-best_score/SIGMA2));
+            reliabilityMap_.set(p, std::max(qExp(-best_score/SIGMA2), QREAL_MIN));
             offsetMap_.set(p, best_offset);
         }
         if (pass%2) {
@@ -301,8 +304,6 @@ bool SimilarityMapper::updateSourceMasked(QPoint p, QPoint* best_offset,
         return false;
 
     *best_score = score;
-    // scoreMap_.set(p, qCeil(score));
-    // reliabilityMap_.set(p, qExp(-score/SIGMA2));
     *best_offset = candidate_offset;
 
     return true;
