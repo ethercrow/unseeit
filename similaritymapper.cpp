@@ -92,6 +92,8 @@ void SimilarityMapper::init(const QImage& src,
 
 COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
 {
+    TRACE_ME
+
     dst_ = dst;
     int init_search_range = qMax(src_.width(), src_.height());
 
@@ -113,8 +115,7 @@ COWMatrix<QPoint> SimilarityMapper::iterate(const QImage& dst)
         foreach(QPoint p, points) {
             QPoint best_offset = offsetMap_.get(p);
 
-            int best_score = INT_MAX;
-            updateSource(p, &best_offset, best_offset, &best_score);
+            int best_score = scoreMap_.get(p);
 
             if (best_score == 0)
                 continue;
